@@ -1,0 +1,26 @@
+The following is the bnf for cl-modular functor.
+
+#+BEGIN_EXAMPLE
+  final := (defmodule <module_name> <mod_term>)
+         | (defmodule <module_name> <doc_string> <mod_term>)
+
+  mod_term := <sig>
+            | <functor>
+            | <module>
+
+  sig := sig <sig_term>*
+
+  sig_term := (val <val_name>)
+            | (fun <fun_name>)
+            | (macro <macro_name>)
+            | (inlude <module_name>)
+
+  functor := (<functor_constraint>* <definitions)
+
+  functor_constraint := (<module_name> (<sig>))
+                      | (<mod_name> <sig_name>)
+
+  module := struct <definiitons>
+
+  definitions := <valid_lisp>
+#+END_EXAMPLE

@@ -35,19 +35,28 @@
 ;; later, for now we'll just use boolean tests
 ;; an expect framework will be made
 
-(assert
- (=
-  (alias:with-alias-name reference r
-    (let ((z (R.ref 2))
-          (y (R.ref 3)))
-      (+ (R.! z) (R.! y))))
-  5))
+(in-package :cl-module-functor-test)
 
-(assert
- (=
-  (alias:with-alias-name cl c
-    (c.defun f () (+ 2 3))
-    (let ((z (c.+ 2 3))
-          (y (c.* 2 4)))
-      (c.+ z y)))
-  13))
+(def-suite aliasing-test
+    :description "Tests the aliasing module")
+
+(in-suite aliasing-test)
+
+(test alias-name
+  (for-all ((a (gen-integer))
+            (b (gen-integer)))
+    (is (=
+         (alias:with-alias-name Reference R
+           (let ((z (R.ref a))
+                 (y (R.ref b)))
+             (+ (R.! z) (R.! y)))))
+        (+ a b))
+
+    (is (=
+         (alias:with-alias-name cl c
+           (c.flet ((f-test () (c.+ 2 3)))
+             (c.let ((z (c.+ a 3))
+                     (y (c.* a b)))
+               (c.+ z y (f-test)))))
+         (+ (+ a 3) (* a b) (+ 2 3))))))
+

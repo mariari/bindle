@@ -3,9 +3,7 @@
   (:use #:cl)
   (:export #:with-alias-name))
 
-
 (in-package alias)
-
 
 (declaim (ftype (function (symbol string) boolean) alias-p))
 (defun alias-p (alias-name string)

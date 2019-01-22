@@ -1,7 +1,7 @@
 (defpackage #:alias
   (:documentation "Allows easy name aliasing for package name spaces")
   (:use #:cl)
-  (:export #:with-alias-name))
+  (:export #:with-alias))
 
 (in-package alias)
 
@@ -21,8 +21,8 @@ the given string is smaller than alias-name which means a precondition is violat
     (subseq string
             (1+ (length alias-string)))))
 
-(defmacro with-alias-name (module-name new-name &body forms)
-  "WITH-ALIAS-NAME module-name new-name form*
+(defmacro with-alias (module-name new-name &body forms)
+  "WITH-ALIAS module-name new-name form*
 
 everywhere inside FORMS new-name.f will be replaced with module-name:f,
 effectively aliasing the old module name to the new-name given
@@ -40,4 +40,4 @@ Note: we use new-name.f, as CL will not accept the colon as it'll try to resolve
       `(progn ,@(mapcar #'walk-body forms)))))
 
 
-(defmacro let-module-alias () `())
+(defmacro let-alias () `())

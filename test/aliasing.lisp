@@ -46,17 +46,16 @@
   (for-all ((a (gen-integer))
             (b (gen-integer)))
     (is (=
-         (alias:with-alias-name Reference R
+         (alias:with-alias Reference R
            (let ((z (R.ref a))
                  (y (R.ref b)))
              (+ (R.! z) (R.! y)))))
         (+ a b))
 
     (is (=
-         (alias:with-alias-name cl c
-           (c.flet ((f-test () (c.+ 2 3)))
-             (c.let ((z (c.+ a 3))
-                     (y (c.* a b)))
-               (c.+ z y (f-test)))))
+         (alias:with-alias cl C
+           (C.flet ((f-test () (C.+ 2 3)))
+             (C.let ((z (C.+ a 3))
+                     (y (C.* a b)))
+               (C.+ z y (f-test)))))
          (+ (+ a 3) (* a b) (+ 2 3))))))
-

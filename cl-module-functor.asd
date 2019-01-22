@@ -7,7 +7,7 @@
   :components
   ((:file "module")
    (:file "aliasing"))
-  :in-order-to ((test-op (test-op :cl-module-functor/test))))
+  :in-order-to ((asdf:test-op (asdf:test-op :cl-module-functor/test))))
 
 (asdf:defsystem :cl-module-functor/test
   :depends-on (:cl-module-functor :fiveam)

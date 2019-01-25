@@ -5,8 +5,9 @@
   :license "MIT"
   :pathname "src/"
   :components
-  ((:file "module")
-   (:file "aliasing"))
+  ((:file "error-type")
+   (:file "aliasing")
+   (:file "module" :depends-on ("error-type")))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-module-functor/test))))
 
 (asdf:defsystem :cl-module-functor/test

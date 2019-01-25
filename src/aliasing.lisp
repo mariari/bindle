@@ -1,7 +1,8 @@
 (defpackage #:alias
   (:documentation "Allows easy name aliasing for package name spaces")
   (:use #:cl)
-  (:export #:with-alias))
+  (:export #:with-alias
+           #:let-alias))
 
 (in-package alias)
 
@@ -21,8 +22,8 @@ the given string is smaller than alias-name which means a precondition is violat
     (subseq string
             (1+ (length alias-string)))))
 
-(defmacro with-alias (module-name new-name &body forms)
-  "WITH-ALIAS module-name new-name form*
+(defmacro with-alias (new-name module-name &body forms)
+  "WITH-ALIAS new-name module-name form*
 
 everywhere inside FORMS new-name.f will be replaced with module-name:f,
 effectively aliasing the old module name to the new-name given
@@ -40,4 +41,21 @@ Note: we use new-name.f, as CL will not accept the colon as it'll try to resolve
       `(progn ,@(mapcar #'walk-body forms)))))
 
 
-(defmacro let-alias () `())
+
+(defmacro let-alias (bindings &body form)
+  "LET-ALIAS ({(alias [module-name])}*) form*
+
+This macro calls with-alias recursively, changing  alias.f to module-name:f
+effectively aliasing the old module name to the new-name given
+Note: we use new-name.f, as CL will not accept the colon as it'll try to resolve
+      the name space before we are able to fix it. This will cause some ambiguity
+      between symbols with .'s in them if it happens to be new-name.f for the symbol
+..."
+  (let ((butlast (butlast bindings))
+        (last    (car (last bindings))))
+    (labels ((f (binding body-acc)
+               `(with-alias ,(car binding) ,(cadr binding) ,body-acc)))
+      (reduce #'f
+              butlast
+              :initial-value (apply #'f last form)
+              :from-end t))))

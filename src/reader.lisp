@@ -1,5 +1,7 @@
 
-
+;; Deprecated idea, can't capture a let over it
+;; Instead will use custom function expanders that will
+;; parse lisp syntax and output the correct environment
 (defun module-syntax (stream char1 char2)
   "#m SYMBOL-NAME ({#:PACKAGE}*) FORM
 This function is used in the syntax above, it creates the module SYMBOL-NAME

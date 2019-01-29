@@ -41,16 +41,15 @@ Note: we use new-name.f, as CL will not accept the colon as it'll try to resolve
       `(progn ,@(mapcar #'walk-body forms)))))
 
 
-
 (defmacro let-alias (bindings &body form)
   "LET-ALIAS ({(alias [module-name])}*) form*
 
-This macro calls with-alias recursively, changing  alias.f to module-name:f
-effectively aliasing the old module name to the new-name given
+This macro calls with-alias recursively for all forms letted, changing
+alias.f to module-name:f effectively aliasing the old module name to the
+new-name given. It then like let, evaluates the form with these changes
 Note: we use new-name.f, as CL will not accept the colon as it'll try to resolve
       the name space before we are able to fix it. This will cause some ambiguity
-      between symbols with .'s in them if it happens to be new-name.f for the symbol
-..."
+      between symbols with .'s in them if it happens to be new-name.f for the symbol"
   (let ((butlast (butlast bindings))
         (last    (car (last bindings))))
     (labels ((f (binding body-acc)

@@ -12,7 +12,6 @@
     (:error t)
     (t      nil)))
 
-
 (deftype either-error ()
   "Works like Either in Haskell but encodes the :ok and :error as the
 first elements of the list instead of a proper struct type"

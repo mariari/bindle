@@ -6,8 +6,10 @@
   :pathname "src/"
   :components
   ((:file "error-type")
+   (:file "utility")
    (:file "aliasing")
-   (:file "module" :depends-on ("error-type")))
+   (:file "expanders" :depends-on ("utility"))
+   (:file "module" :depends-on ("error-type" "expanders")))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-module-functor/test))))
 
 (asdf:defsystem :cl-module-functor/test
@@ -17,6 +19,7 @@
   :components ((:file "testpkg")
                (:file "module" :depends-on ("testpkg"))
                (:file "aliasing" :depends-on ("testpkg"))
-               (:file "run-tests" :depends-on ("module" "aliasing")))
+               (:file "expanders" :depends-on ("testpkg"))
+               (:file "run-tests" :depends-on ("module" "aliasing" "expanders")))
   :perform (asdf:test-op (o s)
                          (uiop:symbol-call :cl-module-functor-test :run-tests)))

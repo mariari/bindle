@@ -2,4 +2,5 @@
 
 (defun run-tests ()
   (run! 'aliasing-test)
-  (run! 'module-test))
+  (run! 'module-test)
+  (run! 'expanders-test))

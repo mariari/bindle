@@ -2,7 +2,9 @@
   (:documentation "symbol utilities for better dealing with modules")
   (:use #:cl)
   (:export #:intern-sym
-           #:package-designator))
+           #:package-designator
+           #:on-car
+           #:group))
 
 (in-package #:utility)
 
@@ -21,3 +23,23 @@ source code but is not exposed"
                 intern-sym))
 (defun intern-sym (sym &optional (package-designator *package*))
   (intern (symbol-name sym) package-designator))
+
+(declaim (ftype (function (function list) list) on-car))
+(defun on-car (f xs)
+  "applies a function f onto the car of a list"
+  (cons (funcall f (car xs)) (cdr xs)))
+
+(declaim (ftype (function (fixnum list) list) group))
+(defun group (n xs)
+  "groups a list into lists of size n"
+  (labels ((rec (i xs acc)
+             (cond ((null xs) (reverse (on-car #'reverse acc)))
+                   ((zerop i) (rec (1- n)
+                                   (cdr xs)
+                                   (cons (list (car xs))
+                                         (on-car #'reverse acc))))
+                   (t         (rec (1- i)
+                                   (cdr xs)
+                                   (on-car (lambda (as) (cons (car xs) as)) acc))))))
+    (rec n xs '())))
+

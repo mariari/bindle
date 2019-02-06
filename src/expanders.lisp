@@ -60,10 +60,39 @@ TRIGGER is a function which takes a syntax and package and returns a handler"
 
 
 ;;;; Predefined handlers------------------------------------------------------------------
-(defun defparamter-handler (syntax package)
+(defun cadr-handler (syntax package)
+  "handler that changes the cadr, but keeps the cddr the same"
   (make-handler (list (car syntax)
                       (utility:intern-sym (cadr syntax) package))
                 :resume-at (cddr syntax)))
 
 (add-handler 'defparameter
-             #'defparamter-handler)
+             #'cadr-handler)
+
+(add-handler 'defvar
+             #'cadr-handler)
+
+
+(defun defclass-handler (syntax package)
+  (labels ((handle-slot-options (options)
+             (mapcan (lambda (key-default)
+                       (if (member (car key-default)
+                                   (list :accessor :reader :writer)
+                                   :test #'eq)
+                           (list (car key-default)
+                                 (utility:intern-sym (cadr key-default) package))
+                           key-default))
+                     (utility:group 2 options))))
+    (make-handler
+     (list* (car syntax)
+            (utility:intern-sym (cadr syntax) package)
+            (caddr syntax)              ; superclass names
+            (mapcar (lambda (accessors)
+                      (if (listp accessors)
+                          (cons (car accessors) (handle-slot-options (cdr accessors)))
+                          accessors))
+                    (cadddr syntax))    ; accessors of the class
+            (cddddr syntax)))))         ; rest of the list we don't care about
+
+(add-handler 'defclass
+             #'defclass-handler)

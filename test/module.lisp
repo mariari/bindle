@@ -34,7 +34,7 @@
               (module::make-sig-contents :vals (list sym-v)
                                          :funs (list sym-f)
                                          :macros (list sym-m)
-                                         :includes (list sym-i1 sym-i2)))))
+                                         :includes (list sym-i2 sym-i1)))))
 
       ;; test the failure case with the user putting macros instead of macro
       (is

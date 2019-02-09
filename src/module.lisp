@@ -35,27 +35,24 @@ utilized until type checking occurs"
 (defun parse-sig (xs)
   "parses the signature of a module functor, and returns either an error
 or an okay with the sig-contents"
-  (block error-level
-    (list :ok
-          (reduce
-           (lambda (x acc)
-             ;; we symbol-name it, as we get namespace issues if not
-             ;; ie if we try to call this outside, it'll see macro as
-             ;; common-lisp::module, which breaks the case macro
-             (macrolet ((push-val (f)
-                          `(progn (push (cadr x) (,f acc)) acc)))
-               (let ((sym (symbol-name (car x))))
-                 (cond ((equal sym "VAL")     (push-val sig-contents-vals))
-                       ((equal sym "FUN")     (push-val sig-contents-funs))
-                       ((equal sym "MACRO")   (push-val sig-contents-macros))
-                       ((equal sym "INCLUDE") (push-val sig-contents-includes))
-                       (t (progn
-                            (return-from error-level
-                              (list :error
-                                    (concatenate 'string
-                                                 "the module signature includes a "
-                                                 (symbol-name (car x))
-                                                 " please change it to val, macro, fun or include")))))))))
-           xs
-           :from-end t
-           :initial-value (make-sig-contents)))))
+  (let ((sig-conts (make-sig-contents)))
+    (mapc (lambda (x)
+            ;; we symbol-name it, as we get namespace issues if not
+            ;; ie if we try to call this outside, it'll see macro as
+            ;; common-lisp::module, which breaks the case macro
+            (macrolet ((push-val (f)
+                         `(progn (push (cadr x) (,f sig-conts)) sig-conts)))
+              (let ((sym (symbol-name (car x))))
+                (cond ((equal sym "VAL")     (push-val sig-contents-vals))
+                      ((equal sym "FUN")     (push-val sig-contents-funs))
+                      ((equal sym "MACRO")   (push-val sig-contents-macros))
+                      ((equal sym "INCLUDE") (push-val sig-contents-includes))
+                      (t (progn
+                           (return-from parse-sig
+                             (list :error
+                                   (concatenate 'string
+                                                "the module signature includes a "
+                                                sym
+                                                " please change it to val, macro, fun or include")))))))))
+          xs)
+    (list :ok sig-conts)))

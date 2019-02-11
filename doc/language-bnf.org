@@ -16,6 +16,7 @@ The following is the bnf for cl-modular functor.
             | (fun <fun_name>)
             | (macro <macro_name>)
             | (inlude <module_name>)
+            | <valid_symbol>
 
   functor := (<functor_constraint>* <definitions>)
            | (<functor_constraint>* (<sig>) <definitions>)

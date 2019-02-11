@@ -11,11 +11,13 @@ package system")
 ;;;; Types--------------------------------------------------------------------------------
 (defstruct sig-contents
   "a container that holds declarations of the fields below... going to be under
-utilized until type checking occurs"
+utilized until type checking occurs. Others present the user with a way of saying
+just export these symbols"
   (vals    '() :type list)
   (funs    '() :type list)
   (macros  '() :type list)
-  (includes '() :type list))
+  (includes '() :type list)
+  (others   '() :type list))
 
 ;;;; Main function------------------------------------------------------------------------
 (defmacro defmodule (&body terms)
@@ -40,19 +42,21 @@ or an okay with the sig-contents"
             ;; we symbol-name it, as we get namespace issues if not
             ;; ie if we try to call this outside, it'll see macro as
             ;; common-lisp::module, which breaks the case macro
-            (macrolet ((push-val (f)
-                         `(progn (push (cadr x) (,f sig-conts)) sig-conts)))
-              (let ((sym (symbol-name (car x))))
-                (cond ((equal sym "VAL")     (push-val sig-contents-vals))
+            (if (not (listp x))
+                (push x (sig-contents-others sig-conts))
+                (macrolet ((push-val (f)
+                             `(push (cadr x) (,f sig-conts))))
+                  (let ((sym (symbol-name (car x))))
+                    (cond
+                      ((equal sym "VAL")     (push-val sig-contents-vals))
                       ((equal sym "FUN")     (push-val sig-contents-funs))
                       ((equal sym "MACRO")   (push-val sig-contents-macros))
                       ((equal sym "INCLUDE") (push-val sig-contents-includes))
-                      (t (progn
-                           (return-from parse-sig
-                             (list :error
-                                   (concatenate 'string
-                                                "the module signature includes a "
-                                                sym
-                                                " please change it to val, macro, fun or include")))))))))
+                      (t (return-from parse-sig
+                           (list :error
+                                 (concatenate 'string
+                                              "the module signature includes a "
+                                              sym
+                                              " please change it to val, macro, fun or include")))))))))
           xs)
     (list :ok sig-conts)))

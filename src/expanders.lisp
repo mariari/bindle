@@ -80,8 +80,11 @@ TRIGGER is a function which takes a syntax and package and returns a handler"
 
 
 (defun defclass-handler (syntax package)
-  (let* ((class-name (utility:intern-sym (cadr syntax) package))
-         (export     (list class-name)))
+  (let* ((class-name    (utility:intern-sym (cadr syntax) package))
+         (super-classes (caddr syntax))
+         (slots         (cadddr syntax))
+         (options       (cddddr syntax))
+         (export        (list class-name)))
     (labels ((handle-slot-options (options)
                (mapcan (lambda (key-default)
                          (if (member (car key-default)
@@ -95,13 +98,13 @@ TRIGGER is a function which takes a syntax and package and returns a handler"
       (make-handler
        (list* (car syntax)
               class-name
-              (caddr syntax)            ; superclass names
+              super-classes
               (mapcar (lambda (accessors)
                         (if (listp accessors)
                             (cons (car accessors) (handle-slot-options (cdr accessors)))
                             accessors))
-                      (cadddr syntax))  ; accessors of the class
-              (cddddr syntax))          ; rest of the list we don't care about
+                      slots)
+              options)
        :export export))))
 
 (add-handler 'defclass

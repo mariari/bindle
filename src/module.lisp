@@ -19,11 +19,58 @@ just export these symbols"
   (includes '() :type list)
   (others   '() :type list))
 
+(defun sig-update (f sig-contents)
+  (make-sig-contents
+   :vals     (funcall f (sig-contents-vals     sig-contents))
+   :funs     (funcall f (sig-contents-funs     sig-contents))
+   :macros   (funcall f (sig-contents-macros   sig-contents))
+   :includes (funcall f (sig-contents-includes sig-contents))
+   :others   (funcall f (sig-contents-others   sig-contents))))
+
+(defun sig-on (f sig-contents)
+  (funcall f (sig-contents-vals     sig-contents))
+  (funcall f (sig-contents-funs     sig-contents))
+  (funcall f (sig-contents-macros   sig-contents))
+  (funcall f (sig-contents-includes sig-contents))
+  (funcall f (sig-contents-others   sig-contents)))
+
+(defun sig-map (f sig-contents)
+  (sig-update (lambda (x) (mapcar f x)) sig-contents))
+
+(defun sig-mapc (f sig-contents)
+  (sig-on (lambda (x) (mapc f x)) sig-contents)
+  nil)
+
 ;;;; Main function------------------------------------------------------------------------
+(defmacro defmodule-named (name &body terms)
+  "acts like defmodule, but does not have any reserved names (strict sig) and does not
+allow anonymous signatures"
+  (let* ((doc-string (and (stringp (car terms)) (car terms)))
+         (mod-term   (if doc-string (cadr terms) (car terms))))
+    (case (error-type:ok-or-error (mod-term mod-term))
+      (:sig     `(defparameter ,name
+                   ',(error-type:ok-or-error
+                      (parse-sig (if doc-string (cddr terms) (cdr terms))))))
+      (:struct  `'undefined)
+      (:functor `'undefined))))
+
 (defmacro defmodule (&body terms)
   `(,@terms))
 
 ;;;; Helper Functions---------------------------------------------------------------------
+
+(declaim (ftype (function (t) either-error) mode-term))
+(defun mod-term (term)
+  (if (listp term)
+      (list :ok :functor)
+      (let ((str-term (and (symbolp term) (symbol-name term))))
+        (cond ((equal str-term "SIG")    (list :ok :sig))
+              ((equal str-term "STRUCT") (list :ok :struct))
+              (t
+               (list :error
+                     (format nil
+                             "The module name should be a functor, STRUCT, or SIG. NOT ~a"
+                             term)))))))
 
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun update-inner-module-name (outer-module inner-module)
@@ -31,7 +78,6 @@ just export these symbols"
                (symbol-name outer-module)
                "."
                (symbol-name inner-module)))
-
 
 (declaim (ftype (function (list) either-error) parse-sig))
 (defun parse-sig (xs)
@@ -60,3 +106,8 @@ or an okay with the sig-contents"
                                               " please change it to val, macro, fun or include")))))))))
           xs)
     (list :ok sig-conts)))
+
+(declaim (ftype (function (sig-contents utility:package-designator) nil)
+                sig-export))
+(defun sig-export (sig-contents module)
+  (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))

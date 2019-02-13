@@ -23,9 +23,9 @@
        (funcall (gethash "DEFPARAMETER" expanders::*expander-table*)
                 '(defparameter cool 2)
                 'test)
-       (expanders::make-recursively :changed '(DEFPARAMETER TEST::COOL)
+       (expanders::make-recursively :changed '(defparameter test::cool)
                                     :resume-at '(2)
-                                    :export '(TEST::COOL))))
+                                    :export '(test::cool))))
   (is (equalp
        (funcall (gethash "DEFCLASS" expanders::*expander-table*)
                 '(defclass name ()
@@ -33,8 +33,8 @@
                    lisp))
                 'test)
        (expanders::make-stop
-        :changed '(DEFCLASS TEST::NAME NIL
-                   ((NAME :ACCESSOR TEST::NAME :READER TEST::READ-NAME
-                     :WRITER TEST::SET-NAME)
-                    LISP))
-        :export '(TEST::SET-NAME TEST::READ-NAME TEST::NAME TEST::NAME)))))
+        :changed '(defclass test::name nil
+                   ((name :accessor test::name :reader test::read-name
+                     :writer test::set-name)
+                    lisp))
+        :export '(test::set-name test::read-name test::name test::name)))))

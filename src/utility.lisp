@@ -42,4 +42,3 @@ source code but is not exposed"
                                    (cdr xs)
                                    (on-car (lambda (as) (cons (car xs) as)) acc))))))
     (rec n xs '())))
-

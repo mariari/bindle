@@ -2,7 +2,8 @@
   (:documentation
    "Provides the error type and utilities thereof")
   (:use #:cl)
-  (:export #:either-error))
+  (:export #:either-error
+           #:ok-or-error))
 
 (in-package :error-type)
 
@@ -16,3 +17,10 @@
   "Works like Either in Haskell but encodes the :ok and :error as the
 first elements of the list instead of a proper struct type"
   `(satisfies satisfies-error-type))
+
+
+(declaim (ftype (function (either-error) t) ok-or-error))
+(defun ok-or-error (err)
+  (if (eq (car err) :error)
+      (error (cadr err))
+      (cadr err)))

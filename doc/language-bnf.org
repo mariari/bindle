@@ -18,13 +18,15 @@ The following is the bnf for cl-modular functor.
             | (inlude <module_name>)
             | <valid_symbol>
 
-  functor := (<functor_constraint>* <definitions>)
-           | (<functor_constraint>* (<sig>) <definitions>)
+  functor := (<functor_constraint>*)            <definitions>
+           | (<functor_constraint>*) (<sig>)    <definitions>
+           | (<functor_constraint>*) <sig_name> <definitions>
 
   functor_constraint := (<module_name> (<sig>))
-                      | (<mod_name> <sig_name>)
+                      | (<module_name> <sig_name>)
 
-  module := struct <definiitons>
+  module := struct <definitons>
+          | struct <sig_name> <definitions>
           | struct (<sig>) <definiitons>
   definitions := <valid_lisp>
 #+END_EXAMPLE

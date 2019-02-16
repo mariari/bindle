@@ -113,10 +113,11 @@ or an okay with the sig-contents"
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 
 (defun in-sig (symbol sig)
-  'undefined)
+  (declare (ignore symbol sig))
+  (error "undefined"))
 
 
-(declaim (ftype (function (list) either-error) parse-struct))
+(declaim (ftype (function (list sig-contents utility:package-designator) either-error) parse-struct))
 (defun parse-struct (xs sig package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
@@ -127,10 +128,11 @@ or an okay with the sig-contents"
                (if (or (null handler) (in-sig name sig))
                    syntax
                    (funcall handler syntax package)))))
-   (mapcar (lambda (x)
-             (if (not (listp x))
-                 x ;; This might change later
-                 ))
-           xs)))
+    (declare (ignore #'apply-handler))
+    (mapcar (lambda (x)
+              (if (not (listp x))
+                  x ;; This might change later
+                  ))
+            xs)))
 
 

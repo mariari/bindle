@@ -7,7 +7,8 @@ can properly export the symbols to the right namespace")
            #:recusively
            #:stop
            #:stop-p
-           #:recursively-p))
+           #:recursively-p
+           #:get-handler))
 
 (in-package #:expanders)
 
@@ -87,7 +88,7 @@ TRIGGER is a function which takes a syntax and package and returns a handler"
 
 (defun defclass-handler (syntax package)
   (let* ((class-name    (utility:intern-sym (cadr syntax) package))
-         (super-clasases (caddr syntax))
+         (super-classes (caddr syntax))
          (slots         (cadddr syntax))
          (options       (cddddr syntax))
          (export        (list class-name)))

@@ -38,7 +38,7 @@ signature is given (mimicing, no signature export all!!)"
 
 ;; we use equal for the test as we have to convert symbols to strings
 (defvar *expander-table*
-  (make-hash-table :test 'equal))
+  (make-hash-table :test #'equal))
 
 ;;;; Functions for the end user to make their own handlers--------------------------------
 
@@ -59,9 +59,13 @@ and convert the rest of the syntax!"
   "adds a module alias handler to the global table of changing handlers
 the SYMBOL-TRIGGER is the symbol you wish for it to go off on. and
 TRIGGER is a function which takes a syntax and package and returns a handler"
-  (setf (gethash (symbol-name symbol-trigger)
+  (setf (gethash (utility:intern-sym symbol-trigger 'keyword)
                  *expander-table*)
         trigger))
+
+(defun get-handler (symbol-trigger)
+  (gethash (utility:intern-sym symbol-trigger 'keyword)
+            *expander-table*))
 
 
 ;;;; Predefined handlers------------------------------------------------------------------
@@ -78,10 +82,12 @@ TRIGGER is a function which takes a syntax and package and returns a handler"
 (add-handler 'defvar
              #'cadr-handler)
 
+(add-handler 'defun
+             #'cadr-handler)
 
 (defun defclass-handler (syntax package)
   (let* ((class-name    (utility:intern-sym (cadr syntax) package))
-         (super-classes (caddr syntax))
+         (super-clasases (caddr syntax))
          (slots         (cadddr syntax))
          (options       (cddddr syntax))
          (export        (list class-name)))

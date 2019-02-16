@@ -3,7 +3,7 @@
    "provides the defmodule macro that gives module functors along with
 anonymous modules, module signatures, and other life improvements to CL
 package system")
-  (:use #:cl #:error-type)
+  (:use #:cl #:error-type #:utility #:expanders)
   (:export #:defmodule))
 
 (in-package module)
@@ -13,9 +13,9 @@ package system")
   "a container that holds declarations of the fields below... going to be under
 utilized until type checking occurs. Others present the user with a way of saying
 just export these symbols"
-  (vals    '() :type list)
-  (funs    '() :type list)
-  (macros  '() :type list)
+  (vals     '() :type list)
+  (funs     '() :type list)
+  (macros   '() :type list)
   (includes '() :type list)
   (others   '() :type list))
 
@@ -111,3 +111,26 @@ or an okay with the sig-contents"
                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
+
+(defun in-sig (symbol sig)
+  'undefined)
+
+
+(declaim (ftype (function (list) either-error) parse-struct))
+(defun parse-struct (xs sig package)
+  "Parses the body of a module. Returns ether an error or an okay with struct-contents.
+   Also checks SIG for the proper values to export."
+  ;; currently lacking the ability to check the signature
+  (labels ((apply-handler (syntax)
+             (let ((handler (expanders:get-handler (car syntax)))
+                   (name (cadr syntax)))
+               (if (or (null handler) (in-sig name sig))
+                   syntax
+                   (funcall handler syntax package)))))
+   (mapcar (lambda (x)
+             (if (not (listp x))
+                 x ;; This might change later
+                 ))
+           xs)))
+
+

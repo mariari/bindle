@@ -20,20 +20,20 @@
 
 (test parameter-expander
   (is (equalp
-       (funcall (gethash "DEFPARAMETER" expanders::*expander-table*)
+       (funcall (gethash :defparameter expanders::*expander-table*)
                 '(defparameter cool 2)
                 'test)
        (expanders::make-recursively :changed '(defparameter test::cool)
                                     :resume-at '(2)
                                     :export '(test::cool))))
   (is (equalp
-       (funcall (gethash "DEFCLASS" expanders::*expander-table*)
+       (funcall (gethash :defclass expanders::*expander-table*)
                 '(defclass name ()
                   ((name :accessor name :reader read-name :writer set-name)
                    lisp))
                 'test)
        (expanders::make-stop
-        :changed '(defclass test::name nil
+        :changed '(defclass test::name ()
                    ((name :accessor test::name :reader test::read-name
                      :writer test::set-name)
                     lisp))

@@ -22,7 +22,8 @@
   (is (equalp
        (funcall (gethash :defparameter expanders::*expander-table*)
                 '(defparameter cool 2)
-                'test)
+                'test
+                bindle.set:+empty+)
        (expanders::make-recursively :changed '(defparameter test::cool)
                                     :resume-at '(2)
                                     :export '(test::cool))))
@@ -31,7 +32,8 @@
                 '(defclass name ()
                   ((name :accessor name :reader read-name :writer set-name)
                    lisp))
-                'test)
+                'test
+                bindle.set:+empty+)
        (expanders::make-stop
         :changed '(defclass test::name ()
                    ((name :accessor test::name :reader test::read-name

@@ -158,10 +158,11 @@ Returns back change-params"
                     (push (car binding-pair) export-local)
                     (let ((changed (recursively-change (cdr binding-pair) package curr-set)))
                       (setf curr-set
-                            (change-params-changed-set changed))
+                            (bindle.set:add (car binding-pair)
+                                            (change-params-changed-set changed)))
                       (mapc (lambda (x) (push x exports))
                             (change-params-exports changed))
-                      (cons (car binding-pair)
+                      (cons (car (utility:intern-sym binding-pair package))
                             (change-params-syntax changed))))
                   (cadr syntax))))
         (make-handler (cons (car syntax) change-bindings)

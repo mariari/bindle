@@ -8,7 +8,8 @@
   ((:file "error-type")
    (:file "utility")
    (:file "aliasing")
-   (:file "expanders" :depends-on ("utility"))
+   (:file "set")
+   (:file "expanders" :depends-on ("utility" "set"))
    (:file "module" :depends-on ("error-type" "expanders")))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-module-functor/test))))
 

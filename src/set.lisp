@@ -5,7 +5,8 @@ and adding local bindings")
   (:shadowing-import-from #:cl #:member)
   (:export #:mem
            #:add
-           #:remove
+           #:add-many
+           #:add-seq
            #:fset
            #:+empty+))
 

@@ -18,9 +18,10 @@
   :description "testing inferior-shell"
   :pathname "test/"
   :components ((:file "testpkg")
-               (:file "module" :depends-on ("testpkg"))
-               (:file "aliasing" :depends-on ("testpkg"))
+               (:file "module"    :depends-on ("testpkg"))
+               (:file "aliasing"  :depends-on ("testpkg"))
                (:file "expanders" :depends-on ("testpkg"))
+               (:file "set"       :depends-on ("testpkg"))
                (:file "run-tests" :depends-on ("module" "aliasing" "expanders")))
   :perform (asdf:test-op (o s)
                          (uiop:symbol-call :cl-module-functor-test :run-tests)))

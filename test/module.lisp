@@ -36,19 +36,20 @@
                                     (include ,sym-i2)
                                     ,sym-o1
                                     ,sym-o2))
-        (list :ok
-              (module::make-sig-contents :vals     (list sym-v)
-                                         :funs     (list sym-f)
-                                         :macros   (list sym-m)
-                                         :includes (list sym-i2 sym-i1)
-                                         :others   (list sym-o2 sym-o1)))))
+               (list :ok
+                     (module::make-sig-contents :vals     (list sym-v)
+                                                :funs     (list sym-f)
+                                                :macros   (list sym-m)
+                                                :includes (list sym-i2 sym-i1)
+                                                :others   (list sym-o2 sym-o1)))))
 
       ;; test the failure case with the user putting macros instead of macro
       (is
-       (equalp (module::parse-sig `((val     ,sym-v)
-                                   (fun     ,sym-f)
-                                   (macros   ,sym-m)
-                                   (include ,sym-i1)
-                                   (include ,sym-i2)))
+       (equalp
+        (module::parse-sig `((val     ,sym-v)
+                            (fun     ,sym-f)
+                            (macros   ,sym-m)
+                            (include ,sym-i1)
+                            (include ,sym-i2)))
         (list :ERROR
               "the module signature includes a MACROS please change it to val, macro, fun or include"))))))

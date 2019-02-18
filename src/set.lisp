@@ -13,7 +13,7 @@ and adding local bindings")
 (in-package #:bindle.set)
 
 (deftype fset ()
-  `list)
+  `red-black)
 
 
 ;; Red and Black Set----------------------------------------------------------------------
@@ -28,7 +28,7 @@ and adding local bindings")
 
 (deftype red-black ()
   `(or (eql :rb-Empty)
-      (satisfies rb-tree-p)))
+       (satisfies rb-tree-p)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defstruct (rb-tree (:conc-name t-))

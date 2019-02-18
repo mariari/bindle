@@ -86,20 +86,39 @@ the trigger function also takes a set that determines what symbols to export if 
   (gethash (utility:intern-sym symbol-trigger 'keyword)
            *expander-table*))
 
-(declaim (ftype (function (list utility:package-designator bindle.set:fset) change-params)
+(declaim (ftype (function (t utility:package-designator bindle.set:fset) change-params)
                 recursively-change))
 (defun recursively-change (syntax package change-set)
   "This does the job of defmacro and recursively expands the syntax to what it should be
 keeping in mind what symbols should be changed via change-set.
 Returns back change-params"
-  (declare (ignore syntax package change-set))
-  (error "function not yet defined"))
+  (cond ((and (symbolp syntax)
+              (utility:curr-packagep syntax)
+              (bindle.set:mem syntax change-set))
+         (make-change-params :syntax (utility:intern-sym syntax package)
+                             :changed-set change-set))
+        ((listp syntax)
+         (let ((state-syntax
+                (utility:foldl-map
+                 (lambda (acc syn)
+                   (let ((params (recursively-change syn package (car acc))))
+                     (list (list (change-params-changed-set params)
+                                 (append (cadr acc)
+                                         (change-params-exports params)))
+                           (change-params-syntax params))))
+                 (list change-set '())
+                 syntax)))
+           (make-change-params :syntax      (cadr state-syntax)
+                               :changed-set (caar state-syntax)
+                               :exports     (cadar state-syntax))))
+        (t (make-change-params :syntax syntax
+                               :changed-set change-set))))
 
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set)
   "handler that changes the cadr, but keeps the cddr the same"
   (declare (ignore change-set))
-  (let ((new-cadr (utility:intern-sym (cadr syntax) package)))
+  (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package)))
     (make-handler (list (car syntax) new-cadr)
                   :export (list new-cadr)
                   :resume-at (cddr syntax))))
@@ -155,17 +174,23 @@ Returns back change-params"
          (export-local nil)
          (change-bindings
           (mapcar (lambda (binding-pair)
-                    (push (car binding-pair) export-local)
-                    (let ((changed (recursively-change (cdr binding-pair) package curr-set)))
-                      (setf curr-set
-                            (bindle.set:add (car binding-pair)
-                                            (change-params-changed-set changed)))
+                    (let* ((symb       (car binding-pair))
+                           (expression (cdr binding-pair))
+                           (changed    (recursively-change expression package curr-set)))
+                      (when (utility:curr-packagep symb)
+                        (setf curr-set
+                              (bindle.set:add symb
+                                              (change-params-changed-set changed)))
+                        (push symb export-local))
                       (mapc (lambda (x) (push x exports))
                             (change-params-exports changed))
-                      (cons (car (utility:intern-sym binding-pair package))
+                      (cons (utility:intern-sym-curr-package symb package)
                             (change-params-syntax changed))))
                   (cadr syntax))))
-        (make-handler (cons (car syntax) change-bindings)
-                      :resume-at (cddr syntax)
-                      :export-local export-local
-                      :export exports)))
+    (make-handler (list (car syntax) change-bindings)
+                  :resume-at (cddr syntax)
+                  :export-local export-local
+                  :export exports)))
+
+(add-handler 'let*
+             #'let*-handler)

@@ -40,3 +40,9 @@
                      :writer test::set-name)
                     lisp))
         :export '(test::set-name test::read-name test::name test::name)))))
+
+;; Add these tests later
+
+;; (let*-handler '(let* ((cl-user::a 2) (b a)) b) 'test bindle.set:+empty+)
+;; (let*-handler '(let* ((cl-user::a 2) (b cl-user::a)) b) 'test bindle.set:+empty+)
+;; (let*-handler '(let* ((a 2) (b a)) b) 'test bindle.set:+empty+)

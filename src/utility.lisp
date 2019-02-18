@@ -2,9 +2,12 @@
   (:documentation "symbol utilities for better dealing with modules")
   (:use #:cl)
   (:export #:intern-sym
+           #:intern-sym-curr-package
+           #:curr-packagep
            #:package-designator
            #:on-car
-           #:group))
+           #:group
+           #:foldl-map))
 
 (in-package #:utility)
 
@@ -24,6 +27,18 @@ source code but is not exposed"
 (defun intern-sym (sym &optional (package-designator *package*))
   (intern (symbol-name sym) package-designator))
 
+(declaim (ftype (function (symbol &optional package-designator)
+                          (values symbol (member :internal :external :inherited nil)))
+                intern-sym-curr-package))
+(defun intern-sym-curr-package (sym &optional (package-designator *package*))
+  "works like intern-sym but only interns the symbol if it's in the current package"
+  (if (eq (symbol-package sym) *package*)
+      (intern-sym sym package-designator)
+      sym))
+
+(defun curr-packagep (sym)
+  (eq (symbol-package sym) *package*))
+
 (declaim (ftype (function (function list) list) on-car))
 (defun on-car (f xs)
   "applies a function f onto the car of a list"
@@ -42,3 +57,14 @@ source code but is not exposed"
                                    (cdr xs)
                                    (on-car (lambda (as) (cons (car xs) as)) acc))))))
     (rec n xs '())))
+
+
+(defun foldl-map (f init xs)
+  (let* ((acc init)
+         (new-list
+          (mapcar (lambda (x)
+                    (let ((acc-syntax (funcall f acc x)))
+                      (setf acc (car acc-syntax))
+                      (cadr acc-syntax)))
+                  xs)))
+    (list acc new-list)))

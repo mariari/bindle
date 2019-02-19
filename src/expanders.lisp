@@ -17,7 +17,7 @@ can properly export the symbols to the right namespace")
   "Serves as the sum type of recursively and stop. Recursively allows defmodule to continue
 where the handler stops, and stop just takes where the handler stops as the full syntax"
   `(or (satisfies recursively-p)
-      (satisfies stop-p)))
+       (satisfies stop-p)))
 
 (defstruct recursively
   "the CHANGED field is aliased augmented syntax to up to a point,
@@ -36,6 +36,11 @@ extra work The EXPORT fields tells defmodule what functions should be exported i
 signature is given (mimicing, no signature export all!!)"
   (changed '() :type list)
   (export  '() :type list))
+
+(declaim (ftype (function ((or recursively stop)) keyword) handle-tag))
+(defun handle-tag (tag)
+  (cond ((recursively-p tag) :recursively)
+        ((stop-p tag)        :stop)))
 
 (defstruct change-params
   "holds the updated changed-set for external definitions, those symbols, so we can pass
@@ -95,8 +100,31 @@ Returns back change-params"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
               (bindle.set:mem syntax change-set))
-         (make-change-params :syntax (utility:intern-sym syntax package)
+         (make-change-params :syntax      (utility:intern-sym syntax package)
                              :changed-set change-set))
+        ((and (listp syntax)
+              (symbolp (car syntax))
+              (get-handler (car syntax)))
+         (let ((handle (funcall (get-handler (car syntax)) syntax package change-set)))
+           (ecase (handle-tag handle)
+             (:stop
+              (make-change-params :syntax      (stop-changed handle)
+                                  :exports     (stop-export handle)
+                                  :changed-set change-set))
+             (:recursively
+              (let* ((change-set   (bindle.set:add-seq (recursively-export handle)
+                                                       change-set))
+                     (inner-change (recursively-change (recursively-resume-at handle)
+                                                       package
+                                                       (bindle.set:add-seq
+                                                        (recursively-export-local handle)
+                                                        change-set))))
+                (make-change-params
+                 :changed-set change-set
+                 :exports     (append (recursively-export handle)
+                                      (change-params-exports inner-change))
+                 :syntax      (append (recursively-changed handle)
+                                      (change-params-syntax inner-change))))))))
         ((listp syntax)
          (let ((state-syntax
                 (utility:foldl-map

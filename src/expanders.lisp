@@ -126,11 +126,18 @@ the trigger function also takes a set that determines what symbols to export if 
                                   curr-set curr-set)
                   (utility:intern-sym-curr-package binding-pair package))
                  ;; we have a form like ((:apple a))
-                 ((and (listp binding-pair) (listp (car binding-pair))
-                     (update-utility (cadar binding-pair)
-                                     curr-set curr-set))
-                  (list (caar binding-pair)
-                        (utility:intern-sym-curr-package (cadar binding-pair) package)))
+                 ((and (listp binding-pair) (listp (car binding-pair)))
+                  (let ((changed (recursively-change (cdr binding-pair)
+                                                     package
+                                                     curr-set)))
+                    (update-utility (cadar binding-pair)
+                                    curr-set
+                                    (change-params-changed-set changed))
+                    (mapc (lambda (x) (push x exports))
+                          (change-params-exports changed))
+                    (cons (list (caar binding-pair)
+                                (utility:intern-sym-curr-package (cadar binding-pair) package))
+                          (change-params-syntax changed))))
                  (t
                   (let* ((symb       (car binding-pair))
                          (expression (cdr binding-pair))

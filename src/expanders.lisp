@@ -46,8 +46,16 @@ signature is given (mimicing, no signature export all!!)"
   "holds the updated changed-set for external definitions, those symbols, so we can pass
 exported data, and the updated syntax"
   syntax
-  changed-set
-  exports)
+  (changed-set bindle.set:+empty+ :type bindle.set:fset)
+  (exports nil :type list))
+
+(defstruct alias
+  "Serves as the datastructure returned by the various alias handlers CHANGED
+is the changed syntax, EXPORT are the variables that are exported from this syntax
+and EXPORT-LOCAL are the variables that are over the next sexp"
+  (changed      nil :type list)
+  (export       nil :type list)
+  (export-local nil :type list))
 
 ;;;; Global expander table----------------------------------------------------------------
 
@@ -55,8 +63,8 @@ exported data, and the updated syntax"
 (defvar *expander-table*
   (make-hash-table :test #'equal))
 
-;;;; Functions for the end user to make their own handlers--------------------------------
-
+;;;; Functions for dealing with the expander table----------------------------------------
+ 
 (declaim (ftype (function (list &key (:resume-at list)
                                      (:export list)
                                      (:export-local list))
@@ -90,6 +98,63 @@ the trigger function also takes a set that determines what symbols to export if 
 (defun get-handler (symbol-trigger)
   (gethash (utility:intern-sym symbol-trigger 'keyword)
            *expander-table*))
+
+;;;; Functions for the end user to make their own handlers--------------------------------
+
+;; Note we can compile this more efficiently based on arguments
+;; maybe make a macro that does this for me....
+;; for example only the last form is used by let and let*
+(defun alias-handler-gen* (syntax package change-set *p &optional ignore)
+  (macrolet ((update-utility (symb curr-set changed)
+               `(when (utility:curr-packagep ,symb)
+                  (when *p
+                    (setf ,curr-set
+                          (bindle.set:add ,symb
+                                          ,changed)))
+                  (push ,symb export-local))))
+    (let* ((curr-set     change-set)
+           (export-local nil)
+           (exports      nil)
+           (change-bindings
+            (mapcar
+             (lambda (binding-pair)
+               (cond
+                 ((and (symbolp binding-pair) (member binding-pair ignore))
+                  binding-pair)
+                 ((symbolp binding-pair)
+                  (update-utility binding-pair
+                                  curr-set curr-set)
+                  (utility:intern-sym-curr-package binding-pair package))
+                 ;; we have a form like ((:apple a))
+                 ((and (listp binding-pair) (listp (car binding-pair))
+                     (update-utility (cadar binding-pair)
+                                     curr-set curr-set))
+                  (list (caar binding-pair)
+                        (utility:intern-sym-curr-package (cadar binding-pair) package)))
+                 (t
+                  (let* ((symb       (car binding-pair))
+                         (expression (cdr binding-pair))
+                         (changed    (recursively-change expression package curr-set)))
+                    (update-utility symb
+                                    curr-set
+                                    (change-params-changed-set changed))
+                    (mapc (lambda (x) (push x exports))
+                          (change-params-exports changed))
+                    (cons (utility:intern-sym-curr-package symb package)
+                          (change-params-syntax changed))))))
+             syntax)))
+      (make-alias :changed      change-bindings
+                  :export       exports
+                  :export-local export-local))))
+
+(defun alias-handler* (syntax package change-set)
+  (alias-handler-gen* syntax package change-set t))
+
+(defun alias-handler (syntax package change-set)
+  (alias-handler-gen* syntax package change-set nil))
+
+
+
 
 (declaim (ftype (function (t utility:package-designator bindle.set:fset) change-params)
                 recursively-change))
@@ -157,12 +222,21 @@ Returns back change-params"
 (add-handler 'defvar
              #'cadr-handler)
 
-;; make a local change function that updates the syntax of all symbols and adds them
-;; to the locallly change
 
-;; Don't use this implementation. Move the arguments of the defun into the namespace
-;; (add-handler 'defun
-;;              #'cadr-handler)
+(defun defun-handler (syntax package change-set)
+  (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
+         (alias    (alias-handler-gen* (caddr syntax)
+                                       package change-set t
+                                       `(&key &optional &aux &rest))))
+    (make-handler (list (car syntax)
+                        new-cadr
+                        (alias-changed alias))
+                  :export       (cons new-cadr (alias-export alias))
+                  :export-local (alias-export-local alias)
+                  :resume-at    (cdddr syntax))))
+
+(add-handler 'defun
+             #'cadr-handler)
 
 (defun defclass-handler (syntax package change-set)
   (declare (ignore change-set))
@@ -196,29 +270,23 @@ Returns back change-params"
 (add-handler 'defclass
              #'defclass-handler)
 
+
+;; just a template to inline the two let-handlers
+(defmacro let-handler-gen (f syntax package change-set)
+  `(let ((alias (,f (cadr ,syntax) ,package ,change-set)))
+     (make-handler (list (car ,syntax) (alias-changed alias))
+                   :resume-at    (cddr ,syntax)
+                   :export-local (alias-export-local alias)
+                   :export       (alias-export alias))))
+
 (defun let*-handler (syntax package change-set)
-  (let* ((curr-set     change-set)
-         (exports      nil)
-         (export-local nil)
-         (change-bindings
-          (mapcar (lambda (binding-pair)
-                    (let* ((symb       (car binding-pair))
-                           (expression (cdr binding-pair))
-                           (changed    (recursively-change expression package curr-set)))
-                      (when (utility:curr-packagep symb)
-                        (setf curr-set
-                              (bindle.set:add symb
-                                              (change-params-changed-set changed)))
-                        (push symb export-local))
-                      (mapc (lambda (x) (push x exports))
-                            (change-params-exports changed))
-                      (cons (utility:intern-sym-curr-package symb package)
-                            (change-params-syntax changed))))
-                  (cadr syntax))))
-    (make-handler (list (car syntax) change-bindings)
-                  :resume-at (cddr syntax)
-                  :export-local export-local
-                  :export exports)))
+  (let-handler-gen alias-handler* syntax package change-set))
+
+(defun let-handler (syntax package change-set)
+  (let-handler-gen alias-handler syntax package change-set))
 
 (add-handler 'let*
              #'let*-handler)
+
+(add-handler 'let
+             #'let-handler)

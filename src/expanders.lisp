@@ -203,8 +203,8 @@ Returns back change-params"
                  (lambda (acc syn)
                    (let ((params (recursively-change syn package (car acc))))
                      (list (list (change-params-changed-set params)
-                                 (append (cadr acc)
-                                         (change-params-exports params)))
+                                 (append (change-params-exports params)
+                                         (cadr acc)))
                            (change-params-syntax params))))
                  (list change-set '())
                  syntax)))
@@ -229,12 +229,13 @@ Returns back change-params"
 (add-handler 'defvar
              #'cadr-handler)
 
+(defvar *defun-keywords* '(&key &optional &aux &rest))
 
 (defun defun-handler (syntax package change-set)
   (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
          (alias    (alias-handler-gen* (caddr syntax)
                                        package change-set t
-                                       `(&key &optional &aux &rest))))
+                                       *defun-keywords*)))
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
@@ -243,7 +244,57 @@ Returns back change-params"
                   :resume-at    (cdddr syntax))))
 
 (add-handler 'defun
-             #'cadr-handler)
+             #'defun-handler)
+
+(defun fns-handler-gen (syntax package change-set update?)
+  (let* ((fns            (cadr syntax))
+         (locally-export (remove-if-not #'utility:curr-packagep (mapcar #'car fns)))
+         (change-set     (if update?
+                             (reduce (lambda (set symb)
+                                       (bindle.set:add symb set))
+                                     locally-export :initial-value change-set)
+                             change-set))
+         (change-fns
+          (utility:foldl-map
+           (lambda (acc syntax)
+             (let*
+                 ((alias-args (alias-handler-gen* (cadr syntax)
+                                                  package
+                                                  change-set t
+                                                  *defun-keywords*))
+                  (change-set (bindle.set:add-seq
+                               (alias-export alias-args)
+                               (car acc)))
+                  (params (recursively-change (cddr syntax)
+                                              package
+                                              (bindle.set:add-seq
+                                               (alias-export-local alias-args)
+                                               change-set))))
+               (list
+                (list (change-params-changed-set params)
+                      (append (change-params-exports params)
+                              (cadr acc)))
+                (list (utility:intern-sym-curr-package (car syntax) package)
+                      (alias-changed alias-args)
+                      (change-params-syntax params)))))
+           (list change-set '())
+           fns)))
+    (make-handler (list (car syntax) (cadr change-fns))
+                  :export (cadar change-fns)
+                  :resume-at (cddr syntax)
+                  :export-local locally-export)))
+
+(defun labels-handler (syntax package change-set)
+  (fns-handler-gen syntax package change-set t))
+
+(defun flet-handler (syntax package change-set)
+  (fns-handler-gen syntax package change-set nil))
+
+(add-handler 'labels
+             #'labels-handler)
+
+(add-handler 'flet
+             #'flet-handler)
 
 (defun defclass-handler (syntax package change-set)
   (declare (ignore change-set))

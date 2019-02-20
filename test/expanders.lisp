@@ -46,3 +46,7 @@
 ;; (let*-handler '(let* ((cl-user::a 2) (b a)) b) 'test bindle.set:+empty+)
 ;; (let*-handler '(let* ((cl-user::a 2) (b cl-user::a)) b) 'test bindle.set:+empty+)
 ;; (let*-handler '(let* ((a 2) (b a)) b) 'test bindle.set:+empty+)
+
+;; (flet-handler '(labels ((blah (x) (if (zerop x) 1 (foo (1- x))))
+;;                                      (foo (x)  (if (zerop x) 1 (blah (1- x)))))
+;;                              (blah 2)) 'test bindle.set:+empty+)

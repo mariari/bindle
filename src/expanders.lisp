@@ -229,6 +229,9 @@ Returns back change-params"
 (add-handler 'defvar
              #'cadr-handler)
 
+(add-handler 'deftype
+             #'cadr-handler)
+
 (defvar *defun-keywords* '(&key &optional &aux &rest))
 
 (defun defun-handler (syntax package change-set)
@@ -250,9 +253,7 @@ Returns back change-params"
   (let* ((fns            (cadr syntax))
          (locally-export (remove-if-not #'utility:curr-packagep (mapcar #'car fns)))
          (change-set     (if update?
-                             (reduce (lambda (set symb)
-                                       (bindle.set:add symb set))
-                                     locally-export :initial-value change-set)
+                             (bindle.set:add-seq locally-export change-set)
                              change-set))
          (change-fns
           (utility:foldl-map
@@ -273,10 +274,11 @@ Returns back change-params"
                (list
                 (list (change-params-changed-set params)
                       (append (change-params-exports params)
+                              (alias-export alias-args)
                               (cadr acc)))
-                (list (utility:intern-sym-curr-package (car syntax) package)
-                      (alias-changed alias-args)
-                      (change-params-syntax params)))))
+                (list* (utility:intern-sym-curr-package (car syntax) package)
+                       (alias-changed alias-args)
+                       (change-params-syntax params)))))
            (list change-set '())
            fns)))
     (make-handler (list (car syntax) (cadr change-fns))

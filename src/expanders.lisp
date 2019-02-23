@@ -8,7 +8,9 @@ can properly export the symbols to the right namespace")
            #:stop
            #:stop-p
            #:recursively-p
-           #:get-handler))
+           #:get-handler
+           #:join-handle
+           #:+empty-handle+))
 
 (in-package #:expanders)
 
@@ -18,6 +20,8 @@ can properly export the symbols to the right namespace")
 where the handler stops, and stop just takes where the handler stops as the full syntax"
   `(or (satisfies recursively-p)
        (satisfies stop-p)))
+
+(defvar +empty-handle+ (make-stop))
 
 (defstruct recursively
   "the CHANGED field is aliased augmented syntax to up to a point,
@@ -39,6 +43,7 @@ signature is given (mimicing, no signature export all!!)"
 
 (declaim (ftype (function ((or recursively stop)) keyword) handle-tag))
 (defun handle-tag (tag)
+  "TAG"
   (cond ((recursively-p tag) :recursively)
         ((stop-p tag)        :stop)))
 
@@ -57,6 +62,33 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (export       nil :type list)
   (export-local nil :type list))
 
+(defun join-handle (a1 a2)
+  "Joins two handles into a single one."
+  (labels ((concat-fields (fun1 fun2)
+             (concatenate 'list (funcall fun1 a1) (funcall fun2 a2))))
+    (ecase (handle-tag a1)
+      (:stop
+       (ecase (handle-tag a2)
+         (:stop
+          (make-stop :changed (concat-fields #'stop-changed #'stop-changed)
+                     :export (concat-fields #'stop-export #'stop-export)))
+         (:recursively
+          (concat-alias a2 a1))))
+      (:recursively
+       (ecase (handle-tag a2)
+         (:stop
+          (make-recursively :changed (concat-fields #'recursively-changed #'stop-changed)
+                            :export (concat-fields #'recursively-export #'stop-export)
+                            :resume-at (recursively-resume-at a1)
+                            :export-local (recursively-export-local a1)))
+         (:recursively
+          (make-recursively :changed (concat-fields #'recursively-changed #'recursively-changed)
+                            :export  (concat-fields #'recursively-export #'recursively-export)
+                            :resume-at (concat-fields #'recursively-resume-at #'recursively-resume-at)
+                            :export-local (concat-fields #'recursively-export-local
+                                                         #'recursively-export-local))))))))
+
+
 ;;;; Global expander table----------------------------------------------------------------
 
 ;; we use equal for the test as we have to convert symbols to strings
@@ -64,7 +96,7 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (make-hash-table :test #'equal))
 
 ;;;; Functions for dealing with the expander table----------------------------------------
- 
+
 (declaim (ftype (function (list &key (:resume-at list)
                                      (:export list)
                                      (:export-local list))
@@ -96,6 +128,7 @@ the trigger function also takes a set that determines what symbols to export if 
         trigger))
 
 (defun get-handler (symbol-trigger)
+  "Returns the handler corresponding to the SYMBOL-TRIGGER"
   (gethash (utility:intern-sym symbol-trigger 'keyword)
            *expander-table*))
 
@@ -161,14 +194,12 @@ the trigger function also takes a set that determines what symbols to export if 
   (alias-handler-gen* syntax package change-set nil))
 
 
-
-
 (declaim (ftype (function (t utility:package-designator bindle.set:fset) change-params)
                 recursively-change))
 (defun recursively-change (syntax package change-set)
   "This does the job of defmacro and recursively expands the syntax to what it should be
-keeping in mind what symbols should be changed via change-set.
-Returns back change-params"
+   keeping in mind what symbols should be changed via change-set.
+   Returns back change-params"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
               (bindle.set:mem syntax change-set))
@@ -214,6 +245,8 @@ Returns back change-params"
         (t (make-change-params :syntax syntax
                                :changed-set change-set))))
 
+
+
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set)
   "handler that changes the cadr, but keeps the cddr the same"
@@ -223,17 +256,8 @@ Returns back change-params"
                   :export (list new-cadr)
                   :resume-at (cddr syntax))))
 
-(add-handler 'defparameter
-             #'cadr-handler)
-
-(add-handler 'defvar
-             #'cadr-handler)
-
-(add-handler 'deftype
-             #'cadr-handler)
 
 (defvar *defun-keywords* '(&key &optional &aux &rest))
-
 (defun defun-handler (syntax package change-set)
   (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
          (alias    (alias-handler-gen* (caddr syntax)
@@ -246,8 +270,36 @@ Returns back change-params"
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 
-(add-handler 'defun
-             #'defun-handler)
+
+(defun defclass-handler (syntax package change-set)
+  (declare (ignore change-set))
+  (let* ((class-name    (utility:intern-sym (cadr syntax) package))
+         (super-classes (caddr syntax))
+         (slots         (cadddr syntax))
+         (options       (cddddr syntax))
+         (export        (list class-name)))
+    (labels ((handle-slot-options (options)
+               (mapcan (lambda (key-default)
+                         (if (member (car key-default)
+                                     (list :accessor :reader :writer)
+                                     :test #'eq)
+                             (let ((new-accessor (utility:intern-sym (cadr key-default) package)))
+                               (push new-accessor export)
+                               (list (car key-default) new-accessor))
+                             key-default))
+                       (utility:group 2 options))))
+      (make-handler
+       (list* (car syntax)
+              class-name
+              super-classes
+              (mapcar (lambda (accessors)
+                        (if (listp accessors)
+                            (cons (car accessors) (handle-slot-options (cdr accessors)))
+                            accessors))
+                      slots)
+              options)
+       :export export))))
+
 
 (defun fns-handler-gen (syntax package change-set update?)
   (let* ((fns            (cadr syntax))
@@ -286,51 +338,6 @@ Returns back change-params"
                   :resume-at (cddr syntax)
                   :export-local locally-export)))
 
-(defun labels-handler (syntax package change-set)
-  (fns-handler-gen syntax package change-set t))
-
-(defun flet-handler (syntax package change-set)
-  (fns-handler-gen syntax package change-set nil))
-
-(add-handler 'labels
-             #'labels-handler)
-
-(add-handler 'flet
-             #'flet-handler)
-
-(defun defclass-handler (syntax package change-set)
-  (declare (ignore change-set))
-  (let* ((class-name    (utility:intern-sym (cadr syntax) package))
-         (super-classes (caddr syntax))
-         (slots         (cadddr syntax))
-         (options       (cddddr syntax))
-         (export        (list class-name)))
-    (labels ((handle-slot-options (options)
-               (mapcan (lambda (key-default)
-                         (if (member (car key-default)
-                                     (list :accessor :reader :writer)
-                                     :test #'eq)
-                             (let ((new-accessor (utility:intern-sym (cadr key-default) package)))
-                               (push new-accessor export)
-                               (list (car key-default) new-accessor))
-                             key-default))
-                       (utility:group 2 options))))
-      (make-handler
-       (list* (car syntax)
-              class-name
-              super-classes
-              (mapcar (lambda (accessors)
-                        (if (listp accessors)
-                            (cons (car accessors) (handle-slot-options (cdr accessors)))
-                            accessors))
-                      slots)
-              options)
-       :export export))))
-
-(add-handler 'defclass
-             #'defclass-handler)
-
-
 ;; just a template to inline the two let-handlers
 (defmacro let-handler-gen (f syntax package change-set)
   `(let ((alias (,f (cadr ,syntax) ,package ,change-set)))
@@ -342,11 +349,42 @@ Returns back change-params"
 (defun let*-handler (syntax package change-set)
   (let-handler-gen alias-handler* syntax package change-set))
 
+
 (defun let-handler (syntax package change-set)
   (let-handler-gen alias-handler syntax package change-set))
+
+(defun labels-handler (syntax package change-set)
+  (fns-handler-gen syntax package change-set t))
+
+(defun flet-handler (syntax package change-set)
+  (fns-handler-gen syntax package change-set nil))
+
+
+;; Add the handlers
+
+(add-handler 'labels
+             #'labels-handler)
+
+(add-handler 'flet
+             #'flet-handler)
+
+(add-handler 'defclass
+             #'defclass-handler)
 
 (add-handler 'let*
              #'let*-handler)
 
 (add-handler 'let
              #'let-handler)
+
+(add-handler 'defun
+             #'defun-handler)
+
+(add-handler 'defparameter
+             #'cadr-handler)
+
+(add-handler 'defvar
+             #'cadr-handler)
+
+(add-handler 'deftype
+             #'cadr-handler)

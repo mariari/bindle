@@ -51,7 +51,7 @@ allow anonymous signatures"
       (:sig     `(defparameter ,name
                    ',(error-type:ok-or-error
                       (parse-sig (if doc-string (cddr terms) (cdr terms))))))
-      (:struct  `'undefined)
+      (:struct  `(defparameter ,name))
       (:functor `'undefined))))
 
 (defmacro defmodule (&body terms)
@@ -72,12 +72,14 @@ allow anonymous signatures"
                              "The module name should be a functor, STRUCT, or SIG. NOT ~a"
                              term)))))))
 
+
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun update-inner-module-name (outer-module inner-module)
   (concatenate 'string
                (symbol-name outer-module)
                "."
                (symbol-name inner-module)))
+
 
 (declaim (ftype (function (list) either-error) parse-sig))
 (defun parse-sig (xs)
@@ -107,10 +109,12 @@ or an okay with the sig-contents"
           xs)
     (list :ok sig-conts)))
 
+
 (declaim (ftype (function (sig-contents utility:package-designator) nil)
                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
+
 
 (defun in-sig (symbol sig)
   (declare (ignore symbol sig))
@@ -120,19 +124,15 @@ or an okay with the sig-contents"
 (declaim (ftype (function (list sig-contents utility:package-designator) either-error) parse-struct))
 (defun parse-struct (xs sig package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
-   Also checks SIG for the proper values to export."
+Also checks SIG for the proper values to export."
   ;; currently lacking the ability to check the signature
-  (labels ((apply-handler (syntax)
-             (let ((handler (expanders:get-handler (car syntax)))
-                   (name (cadr syntax)))
-               (if (or (null handler) (in-sig name sig))
-                   syntax
-                   (funcall handler syntax package)))))
-    (declare (ignore #'apply-handler))
-    (mapcar (lambda (x)
-              (if (not (listp x))
-                  x ;; This might change later
-                  ))
-            xs)))
-
-
+  (declare (ignore sig))
+  (labels ((apply-handler (syntax change-set)
+             (let ((handler (expanders:get-handler (car syntax))))
+               (if (null handler)
+                   expanders:+empty-handle+ ;; join with nothing
+                   (funcall handler syntax package change-set)))))
+    (utility:foldl-map
+     (lambda (acc syn) (expanders:join-handle (apply-handler syn bindle.set:+empty+) acc))
+     expanders:+empty-handle+
+     xs)))

@@ -8,7 +8,12 @@ can properly export the symbols to the right namespace")
            #:stop
            #:stop-p
            #:recursively-p
-           #:get-handler))
+           #:get-handler
+           #:recursively-change
+           #:change-params-changed-set
+           #:change-params-exports
+           #:change-params-syntax
+           #:recursively-change-symbols))
 
 (in-package #:expanders)
 
@@ -64,7 +69,7 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (make-hash-table :test #'equal))
 
 ;;;; Functions for dealing with the expander table----------------------------------------
- 
+
 (declaim (ftype (function (list &key (:resume-at list)
                                      (:export list)
                                      (:export-local list))
@@ -106,12 +111,13 @@ the trigger function also takes a set that determines what symbols to export if 
 ;; for example only the last form is used by let and let*
 (defun alias-handler-gen* (syntax package change-set *p &optional ignore)
   (macrolet ((update-utility (symb curr-set changed)
-               `(when (utility:curr-packagep ,symb)
-                  (when *p
-                    (setf ,curr-set
-                          (bindle.set:add ,symb
-                                          ,changed)))
-                  (push ,symb export-local))))
+               `(progn
+                  (when (utility:curr-packagep ,symb)
+                    (when *p
+                      (setf ,curr-set
+                            (bindle.set:add ,symb
+                                            ,changed)))
+                    (push ,symb export-local)))))
     (let* ((curr-set     change-set)
            (export-local nil)
            (exports      nil)
@@ -213,6 +219,17 @@ Returns back change-params"
                                :exports     (cadar state-syntax))))
         (t (make-change-params :syntax syntax
                                :changed-set change-set))))
+
+(defun recursively-change-symbols (syntax package change-set)
+  "This just looks at the symbols in change-set and changes the symbols in the syntax
+accordingly"
+  (cond ((and (symbolp syntax)
+            (utility:curr-packagep syntax)
+            (bindle.set:mem syntax change-set))
+         (utility:intern-sym syntax package))
+        ((listp syntax)
+         (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
+        (t syntax)))
 
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set)

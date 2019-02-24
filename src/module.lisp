@@ -107,32 +107,64 @@ or an okay with the sig-contents"
           xs)
     (list :ok sig-conts)))
 
+;; unused
 (declaim (ftype (function (sig-contents utility:package-designator) nil)
                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 
-(defun in-sig (symbol sig)
-  (declare (ignore symbol sig))
-  (error "undefined"))
+(declaim (ftype (function (sig-contents utility:package-designator) list)
+                sig-export))
+(defun sig-export-list (sig-contents module)
+  (mapcar (lambda (sym) (utility:intern-sym sym module))
+          (append (sig-contents-vals     sig-contents)
+                  (sig-contents-funs     sig-contents)
+                  (sig-contents-macros   sig-contents)
+                  (sig-contents-includes sig-contents)
+                  (sig-contents-others   sig-contents))))
 
-
-(declaim (ftype (function (list sig-contents utility:package-designator) either-error) parse-struct))
-(defun parse-struct (xs sig package)
+(declaim (ftype (function (list (or sig-contents null) utility:package-designator) either-error) parse-struct))
+(defun parse-struct (syntax sig package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
-  ;; currently lacking the ability to check the signature
-  (labels ((apply-handler (syntax)
-             (let ((handler (expanders:get-handler (car syntax)))
-                   (name (cadr syntax)))
-               (if (or (null handler) (in-sig name sig))
-                   syntax
-                   (funcall handler syntax package)))))
-    (declare (ignore #'apply-handler))
-    (mapcar (lambda (x)
-              (if (not (listp x))
-                  x ;; This might change later
-                  ))
-            xs)))
+  (let* ((pass1
+          (utility:foldl-map
+           (lambda (change-export syntax)
+             (let ((params (expanders:recursively-change
+                            syntax
+                            package
+                            (cadr change-export))))
+               ;; use difference lists here later!
+               (list (list (append (expanders:change-params-exports params)
+                                   (car change-export))
+                           (expanders:change-params-changed-set params))
+                     (expanders:change-params-syntax params))))
+           (list '() bindle.set:+empty+)
+           syntax))
+         (syntax     (cadr  pass1))
+         (change-set (cadar pass1))
+         (exports    (caar  pass1))
+         (pass2 (mapcar (lambda (x) (expanders:recursively-change-symbols
+                                x package change-set))
+                        syntax)))
+    (flet ((final (exports)
+             (list :ok
+                   (cons 'progn
+                         (append pass2
+                                 (list (list 'export
+                                             (list 'quote exports)
+                                             (list 'find-package (list 'quote package)))
+                                       (list 'find-package (list 'quote package))))))))
+      (if sig
+          (let* ((sig-exp (sig-export-list sig package))
+                 (diff    (set-difference sig-exp exports)))
+            (if diff
+                (list :error (error-parse-struct diff))
+                (final sig-exp)))
+          (final exports)))))
 
 
+(defun error-parse-struct (x)
+  (format nil
+          "Please include these symbols in your definition ~@a to staisfy your signature"
+          x))

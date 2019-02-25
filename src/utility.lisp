@@ -32,12 +32,15 @@ source code but is not exposed"
                 intern-sym-curr-package))
 (defun intern-sym-curr-package (sym &optional (package-designator *package*))
   "works like intern-sym but only interns the symbol if it's in the current package"
-  (if (eq (symbol-package sym) *package*)
+  (if (curr-packagep sym)
       (intern-sym sym package-designator)
       sym))
 
 (defun curr-packagep (sym)
-  (eq (symbol-package sym) *package*))
+  (or (eq (symbol-package sym) *package*)
+      (multiple-value-bind (_ b)  (find-symbol (symbol-name sym))
+        (declare (ignore _))
+        (eq :INHERITED b))))
 
 (declaim (ftype (function (function list) list) on-car))
 (defun on-car (f xs)

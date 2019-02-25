@@ -18,6 +18,18 @@ can properly export the symbols to the right namespace")
 (in-package #:expanders)
 
 ;;;; Types--------------------------------------------------------------------------------
+(defstruct exports
+  "Handles lists of exports, has functions and variables, so one doesn't accidently
+change a function when they want to change a variable and vise versa"
+  (fn  '() :type list)
+  (var '() :type list))
+
+(defstruct export-set
+  "Contains two sets, one set that has change functions, and another set that has chagned
+variables"
+  (fn  bindle.set:+empty+ :type bindle.set:fset)
+  (var bindle.set:+empty+ :type bindle.set:fset))
+
 (deftype handle ()
   "Serves as the sum type of recursively and stop. Recursively allows defmodule to continue
 where the handler stops, and stop just takes where the handler stops as the full syntax"
@@ -28,19 +40,19 @@ where the handler stops, and stop just takes where the handler stops as the full
   "the CHANGED field is aliased augmented syntax to up to a point,
 the RESUME-AT field allows defmodule to augment the rest of the given sexp
 The EXPORT fields tells defmodule what functions should be exported if no signature is given
-(mimicing, no signature export all!!) and the EXPORT-LOCAL states that the bindings are local
+  (mimicing, no signature export all!!) and the EXPORT-LOCAL states that the bindings are local
 to the sexp that is left"
-  (changed      '() :type list)
-  (resume-at    '() :type list)
-  (export       '() :type list)
-  (export-local '() :type list))
+  (changed      '()            :type list)
+  (resume-at    '()            :type list)
+  (export       (make-exports) :type exports)
+  (export-local (make-exports) :type exports))
 
 (defstruct stop
   "the CHANGED field is aliased augmented syntax of the entire sexp, defmodule will do no
 extra work The EXPORT fields tells defmodule what functions should be exported if no
 signature is given (mimicing, no signature export all!!)"
-  (changed '() :type list)
-  (export  '() :type list))
+  (changed '()            :type list)
+  (export  (make-exports) :type exports))
 
 (declaim (ftype (function ((or recursively stop)) keyword) handle-tag))
 (defun handle-tag (tag)
@@ -51,16 +63,16 @@ signature is given (mimicing, no signature export all!!)"
   "holds the updated changed-set for external definitions, those symbols, so we can pass
 exported data, and the updated syntax"
   syntax
-  (changed-set bindle.set:+empty+ :type bindle.set:fset)
-  (exports nil :type list))
+  (set (make-export-set) :type export-set)
+  (exports nil           :type list))
 
 (defstruct alias
   "Serves as the datastructure returned by the various alias handlers CHANGED
 is the changed syntax, EXPORT are the variables that are exported from this syntax
 and EXPORT-LOCAL are the variables that are over the next sexp"
-  (changed      nil :type list)
-  (export       nil :type list)
-  (export-local nil :type list))
+  (changed      nil            :type list)
+  (export       (make-exports) :type exports)
+  (export-local (make-exports) :type exports))
 
 ;;;; Global expander table----------------------------------------------------------------
 
@@ -71,8 +83,8 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 ;;;; Functions for dealing with the expander table----------------------------------------
 
 (declaim (ftype (function (list &key (:resume-at list)
-                                     (:export list)
-                                     (:export-local list))
+                                     (:export exports)
+                                     (:export-local exports))
                           handle)
                 make-handler))
 (defun make-handler (changed &key export resume-at export-local)
@@ -89,7 +101,7 @@ and convert the rest of the syntax!"
 
 ;; symbol -> #1=(list -> utility:package-designator -> handle) -> #1#
 (declaim
- (ftype (function (symbol #1=(function (list utility:package-designator bindle.set:fset) handle)) #1#)
+ (ftype (function (symbol #1=(function (list utility:package-designator export-set) handle)) #1#)
         add-handler))
 (defun add-handler (symbol-trigger trigger)
   "adds a module alias handler to the global table of changing handlers
@@ -169,7 +181,7 @@ the trigger function also takes a set that determines what symbols to export if 
 
 
 
-(declaim (ftype (function (t utility:package-designator bindle.set:fset) change-params)
+(declaim (ftype (function (t utility:package-designator export-set) change-params)
                 recursively-change))
 (defun recursively-change (syntax package change-set)
   "This does the job of defmacro and recursively expands the syntax to what it should be
@@ -177,18 +189,18 @@ keeping in mind what symbols should be changed via change-set.
 Returns back change-params"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
-              (bindle.set:mem syntax change-set))
-         (make-change-params :syntax      (utility:intern-sym syntax package)
-                             :changed-set change-set))
+              (bindle.set:mem syntax (export-set-var change-set)))
+         (make-change-params :syntax (utility:intern-sym syntax package)
+                             :set    change-set))
         ((and (listp syntax)
               (symbolp (car syntax))
               (get-handler (car syntax)))
          (let ((handle (funcall (get-handler (car syntax)) syntax package change-set)))
            (ecase (handle-tag handle)
              (:stop
-              (make-change-params :syntax      (stop-changed handle)
-                                  :exports     (stop-export handle)
-                                  :changed-set change-set))
+              (make-change-params :syntax  (stop-changed handle)
+                                  :exports (stop-export handle)
+                                  :set     change-set))
              (:recursively
               (let* ((change-set   (bindle.set:add-seq (recursively-export handle)
                                                        change-set))
@@ -198,11 +210,11 @@ Returns back change-params"
                                                         (recursively-export-local handle)
                                                         change-set))))
                 (make-change-params
-                 :changed-set change-set
-                 :exports     (append (recursively-export handle)
-                                      (change-params-exports inner-change))
-                 :syntax      (append (recursively-changed handle)
-                                      (change-params-syntax inner-change))))))))
+                 :set     change-set
+                 :exports (append (recursively-export handle)
+                                  (change-params-exports inner-change))
+                 :syntax  (append (recursively-changed handle)
+                                  (change-params-syntax inner-change))))))))
         ((listp syntax)
          (let ((state-syntax
                 (utility:foldl-map

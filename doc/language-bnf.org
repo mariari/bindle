@@ -25,7 +25,7 @@ The following is the bnf for cl-modular functor.
   functor_constraint := (<module_name> (<sig>))
                       | (<module_name> <sig_name>)
 
-  module := struct <definitons>
+  module := struct () <definitons>
           | struct <sig_name> <definitions>
           | struct (<sig>) <definiitons>
   definitions := <valid_lisp>

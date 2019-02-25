@@ -46,12 +46,39 @@ just export these symbols"
   "acts like defmodule, but does not have any reserved names (strict sig) and does not
 allow anonymous signatures"
   (let* ((doc-string (and (stringp (car terms)) (car terms)))
-         (mod-term   (if doc-string (cadr terms) (car terms))))
+         (mod-term   (if doc-string (cadr terms) (car terms)))
+         (terms      (if doc-string (cddr terms) (cdr terms))))
     (case (error-type:ok-or-error (mod-term mod-term))
       (:sig     `(defparameter ,name
                    ',(error-type:ok-or-error
-                      (parse-sig (if doc-string (cddr terms) (cdr terms))))))
-      (:struct  `'undefined)
+                      (parse-sig terms))))
+      (:struct   (ignore-errors (make-package name))
+                 (let* ((sig-exp (gensym))
+                        (diff    (gensym))
+                        (sig     nil)
+                        (upp-exp
+                         (cond ((null (car terms))
+                                (parse-struct (cdr terms) name))
+                               ((symbolp (car terms))
+                                (setf sig (car terms))
+                                (parse-struct (cdr terms) name))
+                               (t
+                                (setf sig (parse-sig (cdar terms)))
+                                (parse-struct (cdr terms) name))))
+                        (new-syn (car upp-exp))
+                        (exports (cadr upp-exp)))
+                   `(if ,sig
+                        (let* ((,sig-exp (sig-export-list ,sig ',name))
+                               (,diff    (set-difference ,sig-exp ',exports)))
+                          (when ,diff
+                            (error (error-parse-struct ,diff)))
+                          (progn
+                            ,@new-syn
+                            (export ,sig-exp ',name)
+                            ,(find-package name)))
+                        (progn
+                          ,@new-syn
+                          ,@(final-struct exports name)))))
       (:functor `'undefined))))
 
 (defmacro defmodule (&body terms)
@@ -123,8 +150,9 @@ or an okay with the sig-contents"
                   (sig-contents-includes sig-contents)
                   (sig-contents-others   sig-contents))))
 
-(declaim (ftype (function (list (or sig-contents null) utility:package-designator) either-error) parse-struct))
-(defun parse-struct (syntax sig package)
+
+(declaim (ftype (function (list utility:package-designator) list) parse-struct))
+(defun parse-struct (syntax package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
   (let* ((pass1
@@ -144,25 +172,17 @@ or an okay with the sig-contents"
          (syntax     (cadr  pass1))
          (change-set (cadar pass1))
          (exports    (caar  pass1))
-         (pass2 (mapcar (lambda (x) (expanders:recursively-change-symbols
-                                x package change-set))
+         (pass2 (mapcar (lambda (x)
+                          (expanders:recursively-change-symbols x package change-set))
                         syntax)))
-    (flet ((final (exports)
-             (list :ok
-                   (cons 'progn
-                         (append pass2
-                                 (list (list 'export
-                                             (list 'quote exports)
-                                             (list 'find-package (list 'quote package)))
-                                       (list 'find-package (list 'quote package))))))))
-      (if sig
-          (let* ((sig-exp (sig-export-list sig package))
-                 (diff    (set-difference sig-exp exports)))
-            (if diff
-                (list :error (error-parse-struct diff))
-                (final sig-exp)))
-          (final exports)))))
+    (list pass2 exports)))
 
+(declaim (ftype (function (t utility:package-designator) list) final-struct))
+(defun final-struct (exports package)
+  (list (list 'export
+              (list 'quote exports)
+              (list 'find-package (list 'quote package)))
+        (list 'find-package (list 'quote package))))
 
 (defun error-parse-struct (x)
   (format nil

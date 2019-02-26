@@ -141,7 +141,7 @@ or an okay with the sig-contents"
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 
 (declaim (ftype (function (sig-contents utility:package-designator) list)
-                sig-export))
+                sig-export-list))
 (defun sig-export-list (sig-contents module)
   (mapcar (lambda (sym) (utility:intern-sym sym module))
           (append (sig-contents-vals     sig-contents)

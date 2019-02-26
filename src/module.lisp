@@ -46,12 +46,39 @@ just export these symbols"
   "acts like defmodule, but does not have any reserved names (strict sig) and does not
 allow anonymous signatures"
   (let* ((doc-string (and (stringp (car terms)) (car terms)))
-         (mod-term   (if doc-string (cadr terms) (car terms))))
+         (mod-term   (if doc-string (cadr terms) (car terms)))
+         (terms      (if doc-string (cddr terms) (cdr terms))))
     (case (error-type:ok-or-error (mod-term mod-term))
       (:sig     `(defparameter ,name
                    ',(error-type:ok-or-error
-                      (parse-sig (if doc-string (cddr terms) (cdr terms))))))
-      (:struct  `(defparameter ,name))
+                      (parse-sig terms))))
+      (:struct   (ignore-errors (make-package name))
+                 (let* ((sig-exp (gensym))
+                        (diff    (gensym))
+                        (sig     nil)
+                        (upp-exp
+                         (cond ((null (car terms))
+                                (parse-struct (cdr terms) name))
+                               ((symbolp (car terms))
+                                (setf sig (car terms))
+                                (parse-struct (cdr terms) name))
+                               (t
+                                (setf sig (parse-sig (cdar terms)))
+                                (parse-struct (cdr terms) name))))
+                        (new-syn (car upp-exp))
+                        (exports (cadr upp-exp)))
+                   `(if ,sig
+                        (let* ((,sig-exp (sig-export-list ,sig ',name))
+                               (,diff    (set-difference ,sig-exp ',exports)))
+                          (when ,diff
+                            (error (error-parse-struct ,diff)))
+                          (progn
+                            ,@new-syn
+                            (export ,sig-exp ',name)
+                            ,(find-package name)))
+                        (progn
+                          ,@new-syn
+                          ,@(final-struct exports name)))))
       (:functor `'undefined))))
 
 (defmacro defmodule (&body terms)
@@ -110,29 +137,57 @@ or an okay with the sig-contents"
     (list :ok sig-conts)))
 
 
+;; unused
 (declaim (ftype (function (sig-contents utility:package-designator) nil)
                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 
+(declaim (ftype (function (sig-contents utility:package-designator) list)
+                sig-export))
+(defun sig-export-list (sig-contents module)
+  (mapcar (lambda (sym) (utility:intern-sym sym module))
+          (append (sig-contents-vals     sig-contents)
+                  (sig-contents-funs     sig-contents)
+                  (sig-contents-macros   sig-contents)
+                  (sig-contents-includes sig-contents)
+                  (sig-contents-others   sig-contents))))
 
-(defun in-sig (symbol sig)
-  (declare (ignore symbol sig))
-  (error "undefined"))
 
-
-(declaim (ftype (function (list sig-contents utility:package-designator) either-error) parse-struct))
-(defun parse-struct (xs sig package)
+(declaim (ftype (function (list utility:package-designator) list) parse-struct))
+(defun parse-struct (syntax package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
-Also checks SIG for the proper values to export."
-  ;; currently lacking the ability to check the signature
-  (declare (ignore sig))
-  (labels ((apply-handler (syntax change-set)
-             (let ((handler (expanders:get-handler (car syntax))))
-               (if (null handler)
-                   expanders:+empty-handle+ ;; join with nothing
-                   (funcall handler syntax package change-set)))))
-    (utility:foldl-map
-     (lambda (acc syn) (expanders:join-handle (apply-handler syn bindle.set:+empty+) acc))
-     expanders:+empty-handle+
-     xs)))
+   Also checks SIG for the proper values to export."
+  (let* ((pass1
+          (utility:foldl-map
+           (lambda (change-export syntax)
+             (let ((params (expanders:recursively-change
+                            syntax
+                            package
+                            (cadr change-export))))
+               ;; use difference lists here later!
+               (list (list (append (expanders:change-params-exports params)
+                                   (car change-export))
+                           (expanders:change-params-changed-set params))
+                     (expanders:change-params-syntax params))))
+           (list '() bindle.set:+empty+)
+           syntax))
+         (syntax     (cadr  pass1))
+         (change-set (cadar pass1))
+         (exports    (caar  pass1))
+         (pass2 (mapcar (lambda (x)
+                          (expanders:recursively-change-symbols x package change-set))
+                        syntax)))
+    (list pass2 exports)))
+
+(declaim (ftype (function (t utility:package-designator) list) final-struct))
+(defun final-struct (exports package)
+  (list (list 'export
+              (list 'quote exports)
+              (list 'find-package (list 'quote package)))
+        (list 'find-package (list 'quote package))))
+
+(defun error-parse-struct (x)
+  (format nil
+          "Please include these symbols in your definition ~@a to staisfy your signature"
+          x))

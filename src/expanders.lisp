@@ -10,7 +10,13 @@ can properly export the symbols to the right namespace")
            #:recursively-p
            #:get-handler
            #:join-handle
-           #:+empty-handle+))
+           #:+empty-handle+
+           #:recursively-change
+           #:change-params-changed-set
+           #:change-params-exports
+           #:change-params-syntax
+           #:recursively-change-symbols))
+
 
 (in-package #:expanders)
 
@@ -139,12 +145,13 @@ the trigger function also takes a set that determines what symbols to export if 
 ;; for example only the last form is used by let and let*
 (defun alias-handler-gen* (syntax package change-set *p &optional ignore)
   (macrolet ((update-utility (symb curr-set changed)
-               `(when (utility:curr-packagep ,symb)
-                  (when *p
-                    (setf ,curr-set
-                          (bindle.set:add ,symb
-                                          ,changed)))
-                  (push ,symb export-local))))
+               `(progn
+                  (when (utility:curr-packagep ,symb)
+                    (when *p
+                      (setf ,curr-set
+                            (bindle.set:add ,symb
+                                            ,changed)))
+                    (push ,symb export-local)))))
     (let* ((curr-set     change-set)
            (export-local nil)
            (exports      nil)
@@ -245,7 +252,20 @@ the trigger function also takes a set that determines what symbols to export if 
         (t (make-change-params :syntax syntax
                                :changed-set change-set))))
 
+<<<<<<< HEAD
 
+=======
+(defun recursively-change-symbols (syntax package change-set)
+  "This just looks at the symbols in change-set and changes the symbols in the syntax
+accordingly"
+  (cond ((and (symbolp syntax)
+            (utility:curr-packagep syntax)
+            (bindle.set:mem syntax change-set))
+         (utility:intern-sym syntax package))
+        ((listp syntax)
+         (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
+        (t syntax)))
+>>>>>>> master
 
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set)

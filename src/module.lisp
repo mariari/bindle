@@ -138,8 +138,8 @@ or an okay with the sig-contents"
 
 
 ;; unused
-(declaim (ftype (function (sig-contents utility:package-designator) nil)
-                sig-export))
+;; (declaim (ftype (function (sig-contents utility:package-designator) nil)
+;;                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 

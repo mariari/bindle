@@ -252,9 +252,6 @@ the trigger function also takes a set that determines what symbols to export if 
         (t (make-change-params :syntax syntax
                                :changed-set change-set))))
 
-<<<<<<< HEAD
-
-=======
 (defun recursively-change-symbols (syntax package change-set)
   "This just looks at the symbols in change-set and changes the symbols in the syntax
 accordingly"
@@ -265,7 +262,6 @@ accordingly"
         ((listp syntax)
          (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
         (t syntax)))
->>>>>>> master
 
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set)

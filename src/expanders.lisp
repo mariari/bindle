@@ -40,6 +40,9 @@ where the handler stops, and stop just takes where the handler stops as the full
   `(or (satisfies recursively-p)
        (satisfies stop-p)))
 
+(defvar +empty-export-set+ (make-export-set
+                            :fn bindle.set:+empty+
+                            :var bindle.set:+empty+))
 (defvar +empty-exports+ (make-exports))
 
 (defstruct recursively
@@ -72,8 +75,8 @@ signature is given (mimicing, no signature export all!!)"
   "holds the updated changed-set for external definitions, those symbols, so we can pass
 exported data, and the updated syntax"
   syntax
-  (set     (make-export-set) :type export-set)
-  (exports +empty-exports+ :type exports))
+  (set     +empty-export-set+ :type export-set)
+  (exports +empty-exports+    :type exports))
 
 (defstruct alias
   "Serves as the datastructure returned by the various alias handlers CHANGED
@@ -125,6 +128,15 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                             :export-local (join-exports (recursively-export-local a1)
                                                         (recursively-export-local a2)))))))))
 
+(defun export-set-mem (elem set)
+  (or
+   (bindle.set:mem elem (export-set-fn set))
+   (bindle.set:mem elem (export-set-var set))))
+
+(defun exports-into-export-set (exp set)
+  (make-export-set :fn  (bindle.set:add-seq (exports-fn exp)  (export-set-fn set))
+                   :var (bindle.set:add-seq (exports-var exp) (export-set-var set))))
+
 
 ;;;; Global expander table----------------------------------------------------------------
 
@@ -135,11 +147,11 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 ;;;; Functions for dealing with the expander table----------------------------------------
 
 (declaim (ftype (function (list &key (:resume-at list)
-                                     (:export exports)
-                                     (:export-local exports))
+                                (:export exports)
+                                (:export-local exports))
                           handle)
                 make-handler))
-(defun make-handler (changed &key export resume-at export-local)
+(defun make-handler (changed &key (export +empty-exports+) resume-at (export-local +empty-exports+))
   "makes a handler that either stops at the namespace changes in CHANGED, or
 we can hand off this responsibility and let the system resume where you left off
 and convert the rest of the syntax!"
@@ -171,18 +183,21 @@ the trigger function also takes a set that determines what symbols to export if 
 
 ;;;; Functions for the end user to make their own handlers--------------------------------
 
+(defun export-set-var_ (set var)
+  (make-export-set :fn (export-set-fn set)
+                   :var (bindle.set:add var (export-set-var set))))
+
 ;; Note we can compile this more efficiently based on arguments
 ;; maybe make a macro that does this for me....
 ;; for example only the last form is used by let and let*
+;; Note2: This is only ever used for arguments, so it's safe to 
 (defun alias-handler-gen* (syntax package change-set *p &optional ignore)
   (macrolet ((update-utility (symb curr-set changed)
                `(progn
                   (when (utility:curr-packagep ,symb)
                     (when *p
-                      (setf ,curr-set
-                            (bindle.set:add ,symb
-                                            ,changed)))
-                    (push ,symb export-local)))))
+                      (setf ,curr-set (export-set-var_ ,changed ,symb)))
+                    (setf export-local (export-vars_ export-local '(,symb)))))))
     (let* ((curr-set     change-set)
            (export-local +empty-exports+)
            (exports      +empty-exports+)
@@ -193,17 +208,14 @@ the trigger function also takes a set that determines what symbols to export if 
                  ((and (symbolp binding-pair) (member binding-pair ignore))
                   binding-pair)
                  ((symbolp binding-pair)
-                  (update-utility binding-pair
-                                  curr-set curr-set)
+                  (update-utility binding-pair curr-set curr-set)
                   (utility:intern-sym-curr-package binding-pair package))
                  ;; we have a form like ((:apple a))
                  ((and (listp binding-pair) (listp (car binding-pair)))
-                  (let ((changed (recursively-change (cdr binding-pair)
-                                                     package
-                                                     curr-set)))
+                  (let ((changed (recursively-change (cdr binding-pair) package curr-set)))
                     (update-utility (cadar binding-pair)
                                     curr-set
-                                    (change-params-set changed))
+                                    changed)
                     (setf exports (join-exports exports (change-params-exports changed)))
                     (cons (list (caar binding-pair)
                                 (utility:intern-sym-curr-package (cadar binding-pair) package))
@@ -229,10 +241,6 @@ the trigger function also takes a set that determines what symbols to export if 
 (defun alias-handler (syntax package change-set)
   (alias-handler-gen* syntax package change-set nil))
 
-
-
-
-
 (declaim (ftype (function (t utility:package-designator export-set) change-params)
                 recursively-change))
 (defun recursively-change (syntax package change-set)
@@ -254,11 +262,11 @@ the trigger function also takes a set that determines what symbols to export if 
                                   :exports (stop-export handle)
                                   :set     change-set))
              (:recursively
-              (let* ((change-set   (bindle.set:add-seq (recursively-export handle)
-                                                       change-set))
+              (let* ((change-set   (exports-into-export-set (recursively-export handle)
+                                                            change-set))
                      (inner-change (recursively-change (recursively-resume-at handle)
                                                        package
-                                                       (bindle.set:add-seq
+                                                       (exports-into-export-set
                                                         (recursively-export-local handle)
                                                         change-set))))
                 (make-change-params
@@ -273,10 +281,10 @@ the trigger function also takes a set that determines what symbols to export if 
                  (lambda (acc syn)
                    (let ((params (recursively-change syn package (car acc))))
                      (list (list (change-params-set params)
-                                 (join-handle (change-params-exports params)
-                                              (cadr acc)))
+                                 (join-exports (change-params-exports params)
+                                               (cadr acc)))
                            (change-params-syntax params))))
-                 (list change-set '())
+                 (list change-set +empty-exports+)
                  syntax)))
            (make-change-params :syntax      (cadr state-syntax)
                                :set (caar state-syntax)
@@ -284,13 +292,12 @@ the trigger function also takes a set that determines what symbols to export if 
         (t (make-change-params :syntax syntax
                                :set change-set))))
 
-
 (defun recursively-change-symbols (syntax package change-set)
   "This just looks at the symbols in change-set and changes the symbols in the syntax
 accordingly"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
-              (bindle.set:mem syntax change-set))
+              (export-set-mem syntax change-set))
          (utility:intern-sym syntax package))
         ((listp syntax)
          (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
@@ -303,12 +310,13 @@ accordingly"
   (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package)))
     (make-handler (list (car syntax) new-cadr)
                   :export (if fn?
-                              (make-exports :fn (list new-cadr))
-                              (make-exports :var (list new-cadr))))
-                  :resume-at (cddr syntax)))
+                           (make-exports :fn (list new-cadr))
+                           (make-exports :var (list new-cadr)))
+                  :resume-at (cddr syntax))))
 
 
 (defvar *defun-keywords* '(&key &optional &aux &rest))
+
 (defun defun-handler (syntax package change-set)
   (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
          (alias    (alias-handler-gen* (caddr syntax)

@@ -166,9 +166,9 @@ or an okay with the sig-contents"
                             package
                             (cadr change-export))))
                ;; use difference lists here later!
-               (list (list (append (expanders:change-params-exports params)
-                                   (car change-export))
-                           (expanders:change-params-changed-set params))
+               (list (list (expanders:join-exports (expanders:change-params-exports params)
+                                                   (car change-export))
+                           (expanders:change-params-set params))
                      (expanders:change-params-syntax params))))
            (list '() bindle.set:+empty+)
            syntax))

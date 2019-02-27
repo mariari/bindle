@@ -10,10 +10,10 @@ can properly export the symbols to the right namespace")
            #:recursively-p
            #:get-handler
            #:join-handle
+           #:join-exports
            #:+empty-handle+
            #:recursively-change
            #:change-params-set
-           #:change-params-changed-set
            #:change-params-exports
            #:change-params-syntax
            #:recursively-change-symbols))
@@ -40,7 +40,6 @@ where the handler stops, and stop just takes where the handler stops as the full
   `(or (satisfies recursively-p)
        (satisfies stop-p)))
 
-(defvar +empty-handle+ (make-stop))
 (defvar +empty-exports+ (make-exports))
 
 (defstruct recursively
@@ -61,7 +60,9 @@ signature is given (mimicing, no signature export all!!)"
   (changed '()            :type list)
   (export  +empty-exports+ :type exports))
 
-;; (declaim (ftype (function ((or recursively stop)) keyword) handle-tag))
+(defvar +empty-handle+ (make-stop))
+
+(declaim (ftype (function ((or recursively stop)) keyword) handle-tag))
 (defun handle-tag (tag)
   "TAG"
   (cond ((recursively-p tag) :recursively)
@@ -151,9 +152,9 @@ and convert the rest of the syntax!"
                  :export  export)))
 
 ;; symbol -> #1=(list -> utility:package-designator -> handle) -> #1#
-;; (declaim
-;;  (ftype (function (symbol #1=(function (list utility:package-designator export-set) handle)) #1#)
-;;         add-handler))
+(declaim
+ (ftype (function (symbol #1=(function (list utility:package-designator export-set) handle)) #1#)
+        add-handler))
 (defun add-handler (symbol-trigger trigger)
   "adds a module alias handler to the global table of changing handlers
 the SYMBOL-TRIGGER is the symbol you wish for it to go off on. and
@@ -232,9 +233,8 @@ the trigger function also takes a set that determines what symbols to export if 
 
 
 
-;; (declaim (ftype (function (t utility:package-designator export-set) change-params)
-
-;;                 recursively-change))
+(declaim (ftype (function (t utility:package-designator export-set) change-params)
+                recursively-change))
 (defun recursively-change (syntax package change-set)
   "This does the job of defmacro and recursively expands the syntax to what it should be
    keeping in mind what symbols should be changed via change-set.

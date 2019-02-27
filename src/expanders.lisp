@@ -86,10 +86,10 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (export       +empty-exports+ :type exports)
   (export-local +empty-exports+ :type exports))
 
-(defun export-vars_ (exp vars)
+(defun export-var_ (exp var)
   "A lens to add vars"
   (make-exports :fn (exports-fn exp)
-                :var (append (exports-var exp) vars)))
+                :var (cons var (exports-var exp))))
 
 (defun export-fns_ (exp fns)
   "A lens to add vars"
@@ -197,7 +197,7 @@ the trigger function also takes a set that determines what symbols to export if 
                   (when (utility:curr-packagep ,symb)
                     (when *p
                       (setf ,curr-set (export-set-var_ ,changed ,symb)))
-                    (setf export-local (export-vars_ export-local '(,symb)))))))
+                    (setf export-local (export-var_ export-local ,symb))))))
     (let* ((curr-set     change-set)
            (export-local +empty-exports+)
            (exports      +empty-exports+)
@@ -314,6 +314,12 @@ accordingly"
                            (make-exports :var (list new-cadr)))
                   :resume-at (cddr syntax))))
 
+(defun fn-cadr-handler (syntax package change-set)
+  (cadr-handler syntax package change-set t))
+
+(defun var-cadr-handler (syntax package change-set)
+  (cadr-handler syntax package change-set nil))
+
 
 (defvar *defun-keywords* '(&key &optional &aux &rest))
 
@@ -343,7 +349,7 @@ accordingly"
                                      (list :accessor :reader :writer)
                                      :test #'eq)
                              (let ((new-accessor (utility:intern-sym (cadr key-default) package)))
-                               (push new-accessor export)
+                               (setf export (export-var_ export new-accessor))
                                (list (car key-default) new-accessor))
                              key-default))
                        (utility:group 2 options))))
@@ -364,7 +370,7 @@ accordingly"
   (let* ((fns            (cadr syntax))
          (locally-export (make-exports :fn (remove-if-not #'utility:curr-packagep (mapcar #'car fns))))
          (change-set     (if update?
-                             (bindle.set:add-seq locally-export change-set)
+                             (exports-into-export-set locally-export change-set)
                              change-set))
          (change-fns
           (utility:foldl-map
@@ -374,7 +380,7 @@ accordingly"
                                                   package
                                                   change-set t
                                                   *defun-keywords*))
-                  (change-set (bindle.set:add-seq
+                  (change-set (exports-into-export-set
                                (alias-export alias-args)
                                (car acc)))
                   (params (recursively-change (cddr syntax)
@@ -440,10 +446,10 @@ accordingly"
              #'defun-handler)
 
 (add-handler 'defparameter
-             #'cadr-handler)
+             #'var-cadr-handler)
 
 (add-handler 'defvar
-             #'cadr-handler)
+             #'fn-cadr-handler)
 
 (add-handler 'deftype
-             #'cadr-handler)
+             #'var-cadr-handler)

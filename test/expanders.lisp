@@ -23,23 +23,24 @@
        (funcall (gethash :defparameter expanders::*expander-table*)
                 '(defparameter cool 2)
                 'test
-                bindle.set:+empty+)
+                expanders::+empty-export-set+)
        (expanders::make-recursively :changed '(defparameter test::cool)
                                     :resume-at '(2)
-                                    :export '(test::cool))))
+                                    :export (expanders::make-exports :var '(test::cool)))))
   (is (equalp
        (funcall (gethash :defclass expanders::*expander-table*)
                 '(defclass name ()
                   ((name :accessor name :reader read-name :writer set-name)
                    lisp))
                 'test
-                bindle.set:+empty+)
+                expanders::+empty-export-set+)
        (expanders::make-stop
         :changed '(defclass test::name ()
                    ((name :accessor test::name :reader test::read-name
                      :writer test::set-name)
                     lisp))
-        :export '(test::set-name test::read-name test::name test::name)))))
+        :export (expanders::make-exports
+                 :var '(test::set-name test::read-name test::name test::name))))))
 
 ;; Add these tests later
 

@@ -9,6 +9,10 @@ package system")
 (in-package module)
 
 ;;;; Types--------------------------------------------------------------------------------
+(defstruct fn-sigs
+  fn
+  (args '() :type list))
+
 (defstruct sig-contents
   "a container that holds declarations of the fields below... going to be under
 utilized until type checking occurs. Others present the user with a way of saying
@@ -57,7 +61,7 @@ allow anonymous signatures"
                         (diff    (gensym))
                         (sig     nil)
                         (upp-exp
-                         (cond ((null (car terms))
+                         (cond ((or (null (car terms)) (eq '() (car terms)))
                                 (parse-struct (cdr terms) name))
                                ((symbolp (car terms))
                                 (setf sig (car terms))
@@ -101,11 +105,7 @@ allow anonymous signatures"
 
 
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
-(defun update-inner-module-name (outer-module inner-module)
-  (concatenate 'string
-               (symbol-name outer-module)
-               "."
-               (symbol-name inner-module)))
+(setf (symbol-function 'update-inner-module-name) #'utility:concat-symbol)
 
 
 (declaim (ftype (function (list) either-error) parse-sig))
@@ -124,9 +124,10 @@ or an okay with the sig-contents"
                   (let ((sym (symbol-name (car x))))
                     (cond
                       ((equal sym "VAL")     (push-val sig-contents-vals))
-                      ((equal sym "FUN")     (push-val sig-contents-funs))
                       ((equal sym "MACRO")   (push-val sig-contents-macros))
                       ((equal sym "INCLUDE") (push-val sig-contents-includes))
+                      ((equal sym "FUN")     (push (make-fn-sigs :fn (cadr x) :args (cddr x))
+                                                   (sig-contents-funs sig-conts)))
                       (t (return-from parse-sig
                            (list :error
                                  (concatenate 'string
@@ -148,10 +149,10 @@ or an okay with the sig-contents"
 (defun sig-export-list (sig-contents module)
   (mapcar (lambda (sym) (utility:intern-sym sym module))
           (append (sig-contents-vals     sig-contents)
-                  (sig-contents-funs     sig-contents)
                   (sig-contents-macros   sig-contents)
                   (sig-contents-includes sig-contents)
-                  (sig-contents-others   sig-contents))))
+                  (sig-contents-others   sig-contents)
+                  (mapcar #'fn-sigs-fn (sig-contents-funs sig-contents)))))
 
 
 (declaim (ftype (function (list utility:package-designator) list) parse-struct))
@@ -191,3 +192,9 @@ or an okay with the sig-contents"
   (format nil
           "Please include these symbols in your definition ~@a to staisfy your signature"
           x))
+
+
+;; (defmacro parse-functor (syntax)
+;;   `(let* ((constraints (car syntax))
+;;           (all-sigs    (mapcar (lambda (constraint)) constraints)))))
+

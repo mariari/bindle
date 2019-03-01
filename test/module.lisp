@@ -30,7 +30,7 @@
           (sym-o2 (intern o2)))
       (is
        (equalp (module::parse-sig `((val     ,sym-v)
-                                    (fun     ,sym-f)
+                                    (fun     ,sym-f arg1 arg2)
                                     (macro   ,sym-m)
                                     (include ,sym-i1)
                                     (include ,sym-i2)
@@ -38,7 +38,7 @@
                                     ,sym-o2))
                (list :ok
                      (module::make-sig-contents :vals     (list sym-v)
-                                                :funs     (list sym-f)
+                                                :funs     (list (module::make-fn-sigs :fn sym-f :args '(arg1 arg2)))
                                                 :macros   (list sym-m)
                                                 :includes (list sym-i2 sym-i1)
                                                 :others   (list sym-o2 sym-o1)))))

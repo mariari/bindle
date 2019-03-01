@@ -13,12 +13,12 @@ The following is the bnf for cl-modular functor.
   sig := sig <sig_term>*
 
   sig_term := (val <val_name>)
-            | (fun <fun_name>)
+            | (fun <fun_name> <arguments>*)
             | (macro <macro_name>)
             | (inlude <module_name>)
             | <valid_symbol>
 
-  functor := (<functor_constraint>*)            <definitions>
+  functor := (<functor_constraint>*) ()         <definitions>
            | (<functor_constraint>*) (<sig>)    <definitions>
            | (<functor_constraint>*) <sig_name> <definitions>
 

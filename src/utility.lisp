@@ -7,7 +7,8 @@
            #:package-designator
            #:on-car
            #:group
-           #:foldl-map))
+           #:foldl-map
+           #:concat-symbol))
 
 (in-package #:utility)
 
@@ -71,3 +72,7 @@ source code but is not exposed"
                       (cadr acc-syntax)))
                   xs)))
     (list acc new-list)))
+
+(declaim (ftype (function (symbol symbol) string) update-inner-module-name))
+(defun concat-symbol (prefix symbol)
+  (intern (concatenate 'string (symbol-name prefix) "." (symbol-name symbol))))

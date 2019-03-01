@@ -99,12 +99,14 @@ allow anonymous signatures"
                              "The module name should be a functor, STRUCT, or SIG. NOT ~a"
                              term)))))))
 
+
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun update-inner-module-name (outer-module inner-module)
   (concatenate 'string
                (symbol-name outer-module)
                "."
                (symbol-name inner-module)))
+
 
 (declaim (ftype (function (list) either-error) parse-sig))
 (defun parse-sig (xs)
@@ -134,9 +136,10 @@ or an okay with the sig-contents"
           xs)
     (list :ok sig-conts)))
 
+
 ;; unused
-(declaim (ftype (function (sig-contents utility:package-designator) nil)
-                sig-export))
+;; (declaim (ftype (function (sig-contents utility:package-designator) nil)
+;;                 sig-export))
 (defun sig-export (sig-contents module)
   (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
 
@@ -163,9 +166,9 @@ or an okay with the sig-contents"
                             package
                             (cadr change-export))))
                ;; use difference lists here later!
-               (list (list (append (expanders:change-params-exports params)
-                                   (car change-export))
-                           (expanders:change-params-changed-set params))
+               (list (list (expanders:join-exports (expanders:change-params-exports params)
+                                                   (car change-export))
+                           (expanders:change-params-set params))
                      (expanders:change-params-syntax params))))
            (list '() bindle.set:+empty+)
            syntax))

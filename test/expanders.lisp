@@ -18,17 +18,19 @@
        (expanders::make-recursively :changed '(defun test::blah)
                                     :resume-at '(defun baz (x) 3)))))
 
-(test parameter-expander
+(test defparameter-handler
   (is (equalp
-       (funcall (gethash :defparameter expanders::*expander-table*)
+       (funcall (expanders:get-handler :defparameter)
                 '(defparameter cool 2)
                 'test
                 expanders::+empty-export-set+)
        (expanders::make-recursively :changed '(defparameter test::cool)
                                     :resume-at '(2)
-                                    :export (expanders::make-exports :var '(test::cool)))))
+                                    :export (expanders::make-exports :var '(test::cool))))))
+
+(test class-handler
   (is (equalp
-       (funcall (gethash :defclass expanders::*expander-table*)
+       (funcall (expanders:get-handler :defclass)
                 '(defclass name ()
                   ((name :accessor name :reader read-name :writer set-name)
                    lisp))
@@ -40,7 +42,22 @@
                      :writer test::set-name)
                     lisp))
         :export (expanders::make-exports
-                 :var '(test::set-name test::read-name test::name test::name))))))
+                 :fn '(test::set-name test::read-name test::name)
+                 :var '(test::name))))))
+
+(test defun-handler
+  (is (equalp
+       (funcall (expanders:get-handler :defun)
+                '(defun blah (param y &aux (a (car stuff)) (b 2) c) (list x y a b c))
+                'test
+                expanders::+empty-export-set+)
+       (expanders::make-recursively
+        :changed '(defun test::blah
+                   (test::param test::y
+                    &aux (test::a (car stuff)) (test::b 2) test::c))
+        :resume-at '((list x y a b c))
+        :export (expanders::make-exports :fn '(test::blah))
+        :export-local (expanders::make-exports :var '(c b a y param))))))
 
 ;; Add these tests later
 

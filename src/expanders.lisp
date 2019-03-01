@@ -91,10 +91,18 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (make-exports :fn (exports-fn exp)
                 :var (cons var (exports-var exp))))
 
-(defun export-fns_ (exp fns)
+(defun export-fn_ (exp fn)
   "A lens to add vars"
-  (make-exports :fn  (append (exports-fn exp) fns)
+  (make-exports :fn  (cons fn (exports-fn exp))
                 :var (exports-var exp)))
+
+(defun export-set-var_ (set var)
+  (make-export-set :fn (export-set-fn set)
+                   :var (bindle.set:add var (export-set-var set))))
+
+(defun export-set-fn_ (set fn)
+  (make-export-set :fn (bindle.set:add fn (export-set-fn set))
+                   :var (export-set-var set)))
 
 (defun join-exports (e1 e2 &rest es)
   (labels ((f (e1 e2) (make-exports :fn  (concatenate 'list (exports-fn e1) (exports-fn e2))
@@ -182,11 +190,6 @@ the trigger function also takes a set that determines what symbols to export if 
            *expander-table*))
 
 ;;;; Functions for the end user to make their own handlers--------------------------------
-
-(defun export-set-var_ (set var)
-  (make-export-set :fn (export-set-fn set)
-                   :var (bindle.set:add var (export-set-var set))))
-
 ;; Note we can compile this more efficiently based on arguments
 ;; maybe make a macro that does this for me....
 ;; for example only the last form is used by let and let*
@@ -213,9 +216,7 @@ the trigger function also takes a set that determines what symbols to export if 
                  ;; we have a form like ((:apple a))
                  ((and (listp binding-pair) (listp (car binding-pair)))
                   (let ((changed (recursively-change (cdr binding-pair) package curr-set)))
-                    (update-utility (cadar binding-pair)
-                                    curr-set
-                                    changed)
+                    (update-utility (cadar binding-pair) curr-set (change-params-set changed))
                     (setf exports (join-exports exports (change-params-exports changed)))
                     (cons (list (caar binding-pair)
                                 (utility:intern-sym-curr-package (cadar binding-pair) package))
@@ -224,9 +225,7 @@ the trigger function also takes a set that determines what symbols to export if 
                   (let* ((symb       (car binding-pair))
                          (expression (cdr binding-pair))
                          (changed    (recursively-change expression package curr-set)))
-                    (update-utility symb
-                                    curr-set
-                                    (change-params-set changed))
+                    (update-utility symb curr-set (change-params-set changed))
                     (setf exports (join-exports exports (change-params-exports changed)))
                     (cons (utility:intern-sym-curr-package symb package)
                           (change-params-syntax changed))))))
@@ -290,7 +289,8 @@ the trigger function also takes a set that determines what symbols to export if 
                                :set (caar state-syntax)
                                :exports     (cadar state-syntax))))
         (t (make-change-params :syntax syntax
-                               :set change-set))))
+                               :set change-set
+                               :exports +empty-exports+))))
 
 (defun recursively-change-symbols (syntax package change-set)
   "This just looks at the symbols in change-set and changes the symbols in the syntax
@@ -331,7 +331,7 @@ accordingly"
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
-                  :export       (export-fns_ (alias-export alias) (list new-cadr)) 
+                  :export       (export-fn_ (alias-export alias) new-cadr) 
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 
@@ -349,7 +349,7 @@ accordingly"
                                      (list :accessor :reader :writer)
                                      :test #'eq)
                              (let ((new-accessor (utility:intern-sym (cadr key-default) package)))
-                               (setf export (export-var_ export new-accessor))
+                               (setf export (export-fn_ export new-accessor))
                                (list (car key-default) new-accessor))
                              key-default))
                        (utility:group 2 options))))

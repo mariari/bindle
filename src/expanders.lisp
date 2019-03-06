@@ -215,18 +215,27 @@ the trigger function also takes a set that determines what symbols to export if 
                   (utility:intern-sym-curr-package binding-pair package))
                  ;; we have a form like ((:apple a))
                  ((and (listp binding-pair) (listp (car binding-pair)))
-                  (let ((changed (recursively-change (cdr binding-pair) package curr-set)))
-                    (update-utility (cadar binding-pair) curr-set (change-params-set changed))
-                    (setf exports (join-exports exports (change-params-exports changed)))
+                  (let ((changed (recursively-change (cdr binding-pair)
+                                                     package
+                                                     curr-set)))
+                    (update-utility (cadar binding-pair)
+                                    curr-set
+                                    (change-params-set changed))
+                    (setf exports (join-exports exports
+                                                (change-params-exports changed)))
                     (cons (list (caar binding-pair)
-                                (utility:intern-sym-curr-package (cadar binding-pair) package))
+                                (utility:intern-sym-curr-package (cadar binding-pair)
+                                                                 package))
                           (change-params-syntax changed))))
                  (t
                   (let* ((symb       (car binding-pair))
                          (expression (cdr binding-pair))
                          (changed    (recursively-change expression package curr-set)))
-                    (update-utility symb curr-set (change-params-set changed))
-                    (setf exports (join-exports exports (change-params-exports changed)))
+                    (update-utility symb
+                                    curr-set
+                                    (change-params-set changed))
+                    (setf exports (join-exports exports
+                                                (change-params-exports changed)))
                     (cons (utility:intern-sym-curr-package symb package)
                           (change-params-syntax changed))))))
              syntax)))

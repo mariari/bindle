@@ -175,7 +175,7 @@ or an okay with the sig-contents"
                                                    (car change-export))
                            (expanders:change-params-set params))
                      (expanders:change-params-syntax params))))
-           (list '() bindle.set:+empty+)
+           (list expanders::+empty-exports+ expanders::+empty-export-set+)
            syntax))
          (syntax     (cadr  pass1))
          (change-set (cadar pass1))

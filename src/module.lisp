@@ -23,6 +23,10 @@ just export these symbols"
   (includes '() :type list)
   (others   '() :type list))
 
+(defstruct functor-constraint
+  (conts (make-sig-contents)                           :type sig-contents)
+  (name  (error "Must give functor constraint a name") :type symbol))
+
 (defun sig-update (f sig-contents)
   (make-sig-contents
    :vals     (funcall f (sig-contents-vals     sig-contents))
@@ -194,7 +198,16 @@ or an okay with the sig-contents"
           x))
 
 
-;; (defmacro parse-functor (syntax)
-;;   `(let* ((constraints (car syntax))
-;;           (all-sigs    (mapcar (lambda (constraint)) constraints)))))
+(defmacro parse-functor (syntax)
+  `(let* ((constraints (car ,syntax))
+          (sig         (cadr ,syntax))
+          (body        (cddr ,syntax))
+          (functors    (mapcar (lambda (constraint)
+                                 (let ((name (car constraint))
+                                       (sig  (cadr constraint)))
+                                   (make-functor-constraint
+                                    :name  name
+                                    :conts (if (listp sig) (parse-sig sig) sig))))
+                               constraints)))
+     all-sigs))
 

@@ -8,7 +8,9 @@
            #:on-car
            #:group
            #:foldl-map
-           #:concat-symbol))
+           #:concat-symbol
+           #:let-alias
+           #:let-alias-m))
 
 (in-package #:utility)
 
@@ -76,3 +78,41 @@ source code but is not exposed"
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun concat-symbol (prefix symbol)
   (intern (concatenate 'string (symbol-name prefix) "." (symbol-name symbol))))
+
+;; (let-alias foo cl-user ((+ bin baz) -)
+;;   (foo.+ 2 (foo.- 3 4)))
+
+(defmacro let-alias (prefix namespace forms &body body)
+  "crates an alias for functions in one namespace to another locally
+Note:: We can only take keyword arguments iff the argument list is specified
+       This is due to the poor behavior of &rest and keyword arguments, not
+       allowing an odd number of elements being able to passed at once"
+  (let ((args (gensym)))
+    `(let ,(mapcar (lambda (x)
+                     (let ((name (if (listp x) (car x) x)))
+                       `(,(concat-symbol prefix name)
+                          (symbol-function
+                           (find-symbol ,(symbol-name name)
+                                        ',namespace)))))
+                   forms)
+       (flet ,(mapcar (lambda (x)
+                        (let ((name (concat-symbol prefix (if (listp x) (car x) x))))
+                          `(,name
+                            ,(if (consp x)
+                                 `(,@(cdr x) &rest ,args &key &allow-other-keys)
+                                 `(&rest ,args))
+                            ,(if (consp x)
+                                 `(apply ,name ,@(cdr x) ,args)
+                                 `(apply ,name ,args)))))
+                      forms)
+         ,@body))))
+
+;; (let-alias-m foo cl-user (cond let) (foo.cond (t 2)))
+(defmacro let-alias-m (prefix namespace forms &body body)
+  (let ((bod (gensym)))
+    `(macrolet ,(mapcar (lambda (x)
+                          (let ((name (concat-symbol prefix x)))
+                            `(,name (&body ,bod)
+                                `(,(find-symbol ,(symbol-name x) ',namespace) ,@,bod))))
+                        forms)
+       ,@body)))

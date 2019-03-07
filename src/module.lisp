@@ -197,7 +197,6 @@ or an okay with the sig-contents"
           "Please include these symbols in your definition ~@a to staisfy your signature"
           x))
 
-
 (defmacro parse-functor (syntax)
   `(let* ((constraints (car ,syntax))
           (sig         (cadr ,syntax))
@@ -210,4 +209,3 @@ or an okay with the sig-contents"
                                     :conts (if (listp sig) (parse-sig sig) sig))))
                                constraints)))
      all-sigs))
-

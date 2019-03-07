@@ -16,7 +16,8 @@ can properly export the symbols to the right namespace")
            #:change-params-set
            #:change-params-exports
            #:change-params-syntax
-           #:recursively-change-symbols))
+           #:recursively-change-symbols
+           #:export-to-list))
 
 
 (in-package #:expanders)
@@ -27,6 +28,10 @@ can properly export the symbols to the right namespace")
 change a function when they want to change a variable and vise versa"
   (fn  '() :type list)
   (var '() :type list))
+
+(defun export-to-list (exports)
+  (append (exports-fn  exports)
+          (exports-var exports)))
 
 (defstruct export-set
   "Contains two sets, one set that has change functions, and another set that has chagned

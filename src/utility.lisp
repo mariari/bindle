@@ -10,7 +10,8 @@
            #:foldl-map
            #:concat-symbol
            #:let-alias
-           #:let-alias-m))
+           #:let-alias-m
+           #:let-alias-v))
 
 (in-package #:utility)
 
@@ -90,7 +91,7 @@ source code but is not exposed"
                        `(,(concat-symbol prefix name)
                           (symbol-function
                            (find-symbol ,(symbol-name name)
-                                        ',namespace)))))
+                                        ,namespace)))))
                    forms)
        (flet ,(mapcar (lambda (x)
                         (let ((name (concat-symbol prefix (if (listp x) (car x) x))))
@@ -102,7 +103,21 @@ source code but is not exposed"
                                  `(funcall ,name ,@(cdr x))
                                  `(apply ,name ,args)))))
                       forms)
+         (declare (ignorable
+                   ,@(mapcar (lambda (x) (list 'function (concat-symbol prefix (if (listp x) (car x) x))))
+                             forms)))
          ,@body))))
+
+(defmacro let-alias-v (prefix namespace forms &body body)
+  "crates an alias for variables in one namespace to another locally"
+  `(let ,(mapcar (lambda (x)
+                   `(,(concat-symbol prefix x)
+                      (find-symbol ,(symbol-name x)
+                                   ,namespace)))
+                 forms)
+     (declare (ignorable
+                 ,@(mapcar (lambda (x) (concat-symbol prefix x)) forms)))
+     ,@body))
 
 ;; (let-alias-m foo cl-user (cond let) (foo.cond (t 2)))
 (defmacro let-alias-m (prefix namespace forms &body body)
@@ -110,6 +125,8 @@ source code but is not exposed"
     `(macrolet ,(mapcar (lambda (x)
                           (let ((name (concat-symbol prefix x)))
                             `(,name (&body ,bod)
-                                `(,(find-symbol ,(symbol-name x) ',namespace) ,@,bod))))
+                                    `(,(find-symbol ,(symbol-name x) ,namespace) ,@,bod))))
                         forms)
+       (declare (ignorable
+                 ,@(mapcar (lambda (x) (concat-symbol prefix x)) forms)))
        ,@body)))

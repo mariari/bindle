@@ -50,6 +50,7 @@ just export these symbols"
   nil)
 
 ;;;; Main function------------------------------------------------------------------------
+
 (defmacro defmodule-named (name &body terms)
   "acts like defmodule, but does not have any reserved names (strict sig) and does not
 allow anonymous signatures"
@@ -63,16 +64,14 @@ allow anonymous signatures"
       (:struct   (ignore-errors (make-package name))
                  (let* ((sig-exp (gensym))
                         (diff    (gensym))
-                        (sig     nil)
+                        (sig (cond ((or (null (car terms))
+                                       (eq '() (car terms)))
+                                    nil)
+                                   ((symbolp (car terms))        (car terms))
+                                   ((sig-contents-p (car terms)) (car terms))
+                                   (t                            (parse-sig (cdar terms)))))
                         (upp-exp
-                         (cond ((or (null (car terms)) (eq '() (car terms)))
-                                (parse-struct (cdr terms) name))
-                               ((symbolp (car terms))
-                                (setf sig (car terms))
-                                (parse-struct (cdr terms) name))
-                               (t
-                                (setf sig (parse-sig (cdar terms)))
-                                (parse-struct (cdr terms) name))))
+                         (parse-struct (cdr terms) name))
                         (new-syn (car upp-exp))
                         (exports (cadr upp-exp)))
                    `(if ,sig
@@ -150,13 +149,16 @@ or an okay with the sig-contents"
 
 (declaim (ftype (function (sig-contents utility:package-designator) list)
                 sig-export-list))
+(defun sig-list (sig-contents)
+  (append (sig-contents-vals     sig-contents)
+          (sig-contents-macros   sig-contents)
+          (sig-contents-includes sig-contents)
+          (sig-contents-others   sig-contents)
+          (mapcar #'fn-sigs-fn (sig-contents-funs sig-contents))))
+
 (defun sig-export-list (sig-contents module)
   (mapcar (lambda (sym) (utility:intern-sym sym module))
-          (append (sig-contents-vals     sig-contents)
-                  (sig-contents-macros   sig-contents)
-                  (sig-contents-includes sig-contents)
-                  (sig-contents-others   sig-contents)
-                  (mapcar #'fn-sigs-fn (sig-contents-funs sig-contents)))))
+          (sig-list sig-contents)))
 
 
 (declaim (ftype (function (list utility:package-designator) list) parse-struct))
@@ -179,7 +181,7 @@ or an okay with the sig-contents"
            syntax))
          (syntax     (cadr  pass1))
          (change-set (cadar pass1))
-         (exports    (caar  pass1))
+         (exports    (expanders:export-to-list (caar pass1)))
          (pass2 (mapcar (lambda (x)
                           (expanders:recursively-change-symbols x package change-set))
                         syntax)))
@@ -197,15 +199,94 @@ or an okay with the sig-contents"
           "Please include these symbols in your definition ~@a to staisfy your signature"
           x))
 
-(defmacro parse-functor (syntax)
-  `(let* ((constraints (car ,syntax))
-          (sig         (cadr ,syntax))
-          (body        (cddr ,syntax))
-          (functors    (mapcar (lambda (constraint)
-                                 (let ((name (car constraint))
-                                       (sig  (cadr constraint)))
-                                   (make-functor-constraint
-                                    :name  name
-                                    :conts (if (listp sig) (parse-sig sig) sig))))
-                               constraints)))
-     all-sigs))
+(defmacro parse-functor (sym syntax)
+  (let* ((constraints (car  syntax))
+         (sig         (cadr syntax))
+         (sig         (if (listp sig)
+                          (error-type:ok-or-error (parse-sig (cdr sig)))
+                          (symbol-value sig)))
+         (body        (cddr syntax))
+         (functors    (mapcar (lambda (constraint)
+                                (let ((name (car constraint))
+                                      (sig  (cadr constraint)))
+                                  (make-functor-constraint
+                                   :name (if sym
+                                             (concat-symbol sym name)
+                                             name)
+                                   :conts (if (listp sig)
+                                              (error-type:ok-or-error (parse-sig (cdr sig)))
+                                              (symbol-value sig)))))
+                              constraints))
+         (name             (gensym "MODULE-NAME"))
+         (args             (cons name (mapcar (lambda (x) (gensym (symbol-name (car x))))
+                                              (car syntax)))))
+    `(lambda ,args
+       (declare (ignorable ,@(cdr args)))
+       ;; so the prefix is going to be appended to all the symbols 
+       ,(reduce (lambda (arg-functor syn)
+                  `(alias-signature ,(functor-constraint-name (cadr arg-functor))
+                                    ,(car arg-functor)
+                                    ,(functor-constraint-conts (cadr arg-functor))
+                                    ,syn))
+                (mapcar #'list (cdr args) functors)
+                :initial-value `(prog1 (defmodule-named ,name struct ,sig ,@body)
+                                  (rename-package ',name
+                                                  ,(if sym
+                                                       `(concat-symbol ',sym ,name)
+                                                       name)))
+                :from-end t))))
+
+
+(defmacro alias-signature (prefix namespace sig body)
+  "Aliases all the variables in a signature according to a given namespace "
+  (let* ((sig (if (symbolp sig) (symbol-value sig) sig))
+         (syn
+          `(let-alias ,prefix
+               ,namespace
+               ,(append (mapcar (lambda (x) (cons (fn-sigs-fn x) (fn-sigs-args x)))
+                                (sig-contents-funs sig))
+                        (sig-contents-others sig))
+             (let-alias-m ,prefix ,namespace ,(sig-contents-macros sig)
+               (let-alias-v ,prefix ,namespace ,(sig-contents-vals sig)
+                 ,body)))))
+    (reduce (lambda (new-sig body)
+              `(alias-signature ,prefix ,namespace ,new-sig ,body))
+            (sig-contents-includes sig)
+            :from-end t
+            :initial-value syn)))
+
+
+;; (defparameter *test* (error-type:ok-or-error (parse-sig '((fun foo a b) - +))))
+;; (defparameter *test-2* (copy-structure *test*))
+;; (setf (sig-contents-includes *test-2*) (list *test*))
+;; (alias-signature foo *blah* *test-2* 3)
+
+;; (defparameter *x* #S(SIG-CONTENTS
+;;                      :VALS NIL
+;;                      :FUNS (#S(FN-SIGS :FN FOO :ARGS (A B)))
+;;                      :MACROS NIL
+;;                      :INCLUDES NIL
+;;                      :OTHERS (+ -)))
+
+
+;; Load Forms-----------------------------------------------------------------------------
+(defmethod make-load-form ((s sig-contents) &optional environment)
+  (declare (ignore environment))
+  `(module::make-sig-contents :funs     ,(cons 'list (mapcar #'make-load-form (sig-contents-funs s)))
+                              :vals     ',(sig-contents-vals s)
+                              :others   ',(sig-contents-others s)
+                              :macros   ',(sig-contents-macros s)
+                              :includes ',(sig-contents-includes s)))
+
+(defmethod make-load-form ((f fn-sigs) &optional environment)
+  (declare (ignore environment))
+  `(module::make-fn-sigs :fn  (quote ,(fn-sigs-fn f))
+                        :args (quote ,(fn-sigs-args f))))
+
+;; (defparameter *application-test*
+;;   (parse-functor foocfasdfs
+;;                  (((foo (sig foo bar (fun sub arg1 arg2)))
+;;                    (baz (sig))
+;;                    (bar *test*))
+;;                   (sig)
+;;                   'stuff-goes-here)))

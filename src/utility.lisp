@@ -83,10 +83,7 @@ source code but is not exposed"
 ;;   (foo.+ 2 (foo.- 3 4)))
 
 (defmacro let-alias (prefix namespace forms &body body)
-  "crates an alias for functions in one namespace to another locally
-Note:: We can only take keyword arguments iff the argument list is specified
-       This is due to the poor behavior of &rest and keyword arguments, not
-       allowing an odd number of elements being able to passed at once"
+  "crates an alias for functions in one namespace to another locally"
   (let ((args (gensym)))
     `(let ,(mapcar (lambda (x)
                      (let ((name (if (listp x) (car x) x)))
@@ -99,10 +96,10 @@ Note:: We can only take keyword arguments iff the argument list is specified
                         (let ((name (concat-symbol prefix (if (listp x) (car x) x))))
                           `(,name
                             ,(if (consp x)
-                                 `(,@(cdr x) &rest ,args &key &allow-other-keys)
+                                 `(,@(cdr x))
                                  `(&rest ,args))
                             ,(if (consp x)
-                                 `(apply ,name ,@(cdr x) ,args)
+                                 `(funcall ,name ,@(cdr x))
                                  `(apply ,name ,args)))))
                       forms)
          ,@body))))

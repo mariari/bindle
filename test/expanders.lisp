@@ -42,8 +42,8 @@
                      :writer test::set-name)
                     lisp))
         :export (expanders::make-exports
-                 :fn '(test::set-name test::read-name test::name)
-                 :var '(test::name))))))
+                 :fn '(test::set-name test::read-name test::name test::name)
+                 :var '(test::set-name))))))
 
 (test defun-handler
   (is (equalp

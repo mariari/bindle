@@ -4,7 +4,7 @@
 anonymous modules, module signatures, and other life improvements to CL
 package system")
   (:use #:cl #:error-type #:utility #:expanders)
-  (:export #:defmodule))
+  (:export #:defmodule #:defmodule-named))
 
 (in-package module)
 
@@ -89,7 +89,10 @@ allow anonymous signatures"
       (:functor `'undefined))))
 
 (defmacro defmodule (&body terms)
-  `(,@terms))
+  (if (and (symbolp (car terms))
+         (not (member (symbol-name (car terms)) '("STRUCT" "SIG" "FUNCTOR") :test #'equal)))
+      `(defmodule-named ,(car terms) ,@(cdr terms))
+      `(defmodule-named ,(gensym)    ,@terms)))
 
 ;;;; Helper Functions---------------------------------------------------------------------
 

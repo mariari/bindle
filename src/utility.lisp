@@ -11,7 +11,8 @@
            #:concat-symbol
            #:let-alias
            #:let-alias-m
-           #:let-alias-v))
+           #:let-alias-v
+           #:with-unique-names))
 
 (in-package #:utility)
 
@@ -130,3 +131,12 @@ source code but is not exposed"
        (declare (ignorable
                  ,@(mapcar (lambda (x) (concat-symbol prefix x)) forms)))
        ,@body)))
+
+;; gotten form https://www.cliki.net/WITH-UNIQUE-NAMES
+(defmacro with-unique-names ((&rest bindings) &body body)
+  `(let ,(mapcar #'(lambda (binding)
+                     (destructuring-bind (var prefix)
+                             (if (consp binding) binding (list binding binding))
+                       `(,var (gensym ,(string prefix)))))
+                 bindings)
+    ,@body))

@@ -109,6 +109,11 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (make-export-set :fn (bindle.set:add fn (export-set-fn set))
                    :var (export-set-var set)))
 
+(defun join-exports-to-set (export set)
+  "Joins an exports to a export-set"
+  (make-export-set :fn  (bindle.set:add-seq (exports-fn export)  (export-set-fn set))
+                   :var (bindle.set:add-seq (exports-var export) (export-set-fn set))))
+
 (defun join-exports (e1 e2 &rest es)
   (labels ((f (e1 e2) (make-exports :fn  (concatenate 'list (exports-fn e1) (exports-fn e2))
                                     :var (concatenate 'list (exports-var e1) (exports-var e2)))))
@@ -266,14 +271,15 @@ the trigger function also takes a set that determines what symbols to export if 
          (make-change-params :syntax (utility:intern-sym syntax package)
                              :set    change-set))
         ((and (listp syntax)
-              (symbolp (car syntax))
-              (get-handler (car syntax)))
+            (symbolp (car syntax))
+            (get-handler (car syntax)))
          (let ((handle (funcall (get-handler (car syntax)) syntax package change-set)))
            (ecase (handle-tag handle)
              (:stop
               (make-change-params :syntax  (stop-changed handle)
                                   :exports (stop-export handle)
-                                  :set     change-set))
+                                  :set     (join-exports-to-set (stop-export handle)
+                                                                change-set)))
              (:recursively
               (let* ((change-set   (exports-into-export-set (recursively-export handle)
                                                             change-set))
@@ -281,27 +287,37 @@ the trigger function also takes a set that determines what symbols to export if 
                                                        package
                                                        (exports-into-export-set
                                                         (recursively-export-local handle)
-                                                        change-set))))
+                                                        change-set)))
+                     (exports      (join-exports (recursively-export handle)
+                                                 (change-params-exports inner-change))))
                 (make-change-params
-                 :set     change-set
-                 :exports (join-exports (recursively-export handle)
-                                        (change-params-exports inner-change))
+                 :set     (join-exports-to-set exports change-set)
+                 :exports exports
                  :syntax  (append (recursively-changed handle)
                                   (change-params-syntax inner-change))))))))
-        ((listp syntax)
-         (let ((state-syntax
-                (utility:foldl-map
-                 (lambda (acc syn)
-                   (let ((params (recursively-change syn package (car acc))))
-                     (list (list (change-params-set params)
-                                 (join-exports (change-params-exports params)
-                                               (cadr acc)))
-                           (change-params-syntax params))))
-                 (list change-set +empty-exports+)
-                 syntax)))
-           (make-change-params :syntax      (cadr state-syntax)
-                               :set (caar state-syntax)
-                               :exports     (cadar state-syntax))))
+        ((consp syntax)
+         (let* ((first (if (and (symbolp (car syntax))
+                              (utility:curr-packagep (car syntax))
+                              (bindle.set:mem (car syntax) (export-set-fn change-set)))
+                           (utility:intern-sym (car syntax) package)
+                           (car syntax)))
+                (state-syntax
+                 (utility:foldl-map
+                  (lambda (acc syn)
+                    (let ((params (recursively-change syn package (car acc))))
+                      (list (list (change-params-set params)
+                                  (join-exports (change-params-exports params)
+                                                (cadr acc)))
+                            (change-params-syntax params))))
+                  (list change-set +empty-exports+)
+                  (if (listp (car syntax))
+                      syntax
+                      (cdr syntax)))))
+           (make-change-params :syntax  (if (listp (car syntax))
+                                            (cadr state-syntax)
+                                            (cons first (cadr state-syntax)))
+                               :set     (caar state-syntax)
+                               :exports (cadar state-syntax))))
         (t (make-change-params :syntax syntax
                                :set change-set
                                :exports +empty-exports+))))

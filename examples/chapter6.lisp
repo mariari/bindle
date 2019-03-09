@@ -50,7 +50,6 @@
 
 ;;;; Query Handler-----------------------------------------------------------------------------------
 
-
 (defmodule *query* sig
   create eval-t
   (val name))
@@ -74,9 +73,9 @@
       :initarg :val
       :accessor cwd-val)))
 
-  (defmethod print-object ((obj list-dir::cwd) stream)
+  (defmethod print-object ((obj cwd) stream)
       (print-unreadable-object (obj stream :type t)
-        (with-accessors ((val list-dir::cwd-val)) obj
+        (with-accessors ((val cwd-val)) obj
           (format stream "{~a}" val))))
 
   (defun create (cwd)

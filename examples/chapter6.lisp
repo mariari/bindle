@@ -115,6 +115,24 @@
             (list :error "Could not find matching handler")))
       (list :error "malformed query")))
 
+(defparameter *unique-instance*   (build-instacne 'unique 0      :name unique-instance))
+(defparameter *list-dir-instance* (build-instacne 'list-dir "./" :name dir-instace))
+
+(defparameter *table* (build-dispatch-tables (list *unique-instance* *list-dir-instance*)))
+
+(defmodule *functor* ((foo *query*)) (sig (fun eval))
+  (locally (declare #+sbcl(sb-ext:muffle-conditions cl:warning))
+    (defparameter *value* (foo.create 0))
+    (defun eval ()
+      (foo.eval-t *value* '()))))
+
+(funcall *functor* 'baz 'unique)
+
+
+;; (dispatch *table* (list "ls" "./"))
+;; (dispatch *table* (list "unique" '()))
+
+;; Gensym Failure-------------------------------------------------------------------------
 ;; gensyms on the toplevel does not work too well...
 ;; see this example here!!!
 (defmacro make-gensym ()
@@ -123,22 +141,3 @@
 ;; these 2 gensyms are the same!
 (defparameter *gensym1* (make-gensym))
 (defparameter *gensym2* (make-gensym))
-
-(defparameter *unique-instance*   (build-instacne 'unique 0      :name unique-instance))
-(defparameter *list-dir-instance* (build-instacne 'list-dir "./" :name dir-instace))
-
-(defparameter *table* (build-dispatch-tables (list *unique-instance* *list-dir-instance*)))
-
-;; (dispatch *table* (list "ls" "./"))
-;; (dispatch *table* (list "unique" '()))
-
-
-(defparameter *functor*
-  (locally (declare #+sbcl(sb-ext:muffle-conditions cl:warning))
-    (module::parse-functor nil (((foo *query*))
-                               (sig  (fun eval))
-                               (defparameter *value* (foo.create 0))
-                               (defun eval ()
-                                 (foo.eval-t *value* '()))))))
-
-(funcall *functor* 'baz 'unique)

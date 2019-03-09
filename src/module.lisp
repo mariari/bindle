@@ -57,7 +57,7 @@ allow anonymous signatures"
   (let* ((doc-string (and (stringp (car terms)) (car terms)))
          (mod-term   (if doc-string (cadr terms) (car terms)))
          (terms      (if doc-string (cddr terms) (cdr terms))))
-    (case (error-type:ok-or-error (mod-term mod-term))
+    (ecase (error-type:ok-or-error (mod-term mod-term))
       (:sig     `(defparameter ,name
                    ',(error-type:ok-or-error
                       (parse-sig terms))))
@@ -87,13 +87,22 @@ allow anonymous signatures"
                         (progn
                           ,@new-syn
                           ,@(final-struct exports name)))))
-      (:functor `'undefined))))
+      (:functor `(defparameter ,name
+                   (parse-functor nil ,(cons mod-term terms)))))))
 
 (defmacro defmodule (&body terms)
   (if (and (symbolp (car terms))
-         (not (member (symbol-name (car terms)) '("STRUCT" "SIG" "FUNCTOR") :test #'equal)))
+           (not (member (symbol-name (car terms))
+                        '("STRUCT" "SIG" "FUNCTOR")
+                        :test #'equal)))
       `(defmodule-named ,(car terms) ,@(cdr terms))
-      `(defmodule-named ,(gensym)    ,@terms)))
+      (let* ((doc-string (and (stringp (car terms)) (car terms)))
+             (mod-term   (if doc-string (cadr terms) (car terms)))
+             (func-terms (if doc-string (cddr terms) (cdr terms))))
+        (ecase (error-type:ok-or-error (mod-term mod-term))
+          (:sig     (error-type:ok-or-error (parse-sig terms)))
+          (:struct  `(defmodule-named ,(gensym) ,@terms))
+          (:functor `(parse-functor nil ,func-terms))))))
 
 ;;;; Helper Functions---------------------------------------------------------------------
 
@@ -104,6 +113,7 @@ allow anonymous signatures"
       (let ((str-term (and (symbolp term) (symbol-name term))))
         (cond ((equal str-term "SIG")    (list :ok :sig))
               ((equal str-term "STRUCT") (list :ok :struct))
+              ((equal str-term "FUNCTOR") (list :ok :functor))
               (t
                (list :error
                      (format nil
@@ -196,8 +206,9 @@ or an okay with the sig-contents"
   (list (list 'export
               (list 'quote exports)
               (list 'find-package (list 'quote package)))
-        (list 'values (list 'find-package (list 'quote package))
-                (list 'quote exports))))
+        (list 'values
+              (list 'find-package (list 'quote package))
+              (list 'quote exports))))
 
 (defun error-parse-struct (x)
   (format nil
@@ -225,14 +236,13 @@ or an okay with the sig-contents"
                                               (error-type:ok-or-error (parse-sig (cdr sig)))
                                               (symbol-value sig)))))
                               constraints))
-         (name             (gensym "MODULE-NAME"))
-         (mod              (gensym "MOD"))
-         (exps             (gensym "EXPS"))
-         (args             (cons name (mapcar (lambda (x) (gensym (symbol-name (car x))))
-                                              (car syntax)))))
+         (name        (gensym "MODULE-NAME"))
+         (mod         (gensym "MOD"))
+         (exps        (gensym "EXPS"))
+         (args        (cons name (mapcar (lambda (x) (gensym (symbol-name (car x))))
+                                         (car syntax)))))
     `(lambda ,args
        (declare (ignorable ,@(cdr args)))
-       ;; so the prefix is going to be appended to all the symbols
        ,(reduce (lambda (arg-functor syn)
                   `(alias-signature ,(functor-constraint-name (cadr arg-functor))
                                     ,(car arg-functor)
@@ -247,7 +257,6 @@ or an okay with the sig-contents"
                            (make-package ,value :use '(,name))
                          (export ,exps ,value))))
                 :from-end t))))
-
 
 (defmacro alias-signature (prefix namespace sig body)
   "Aliases all the variables in a signature according to a given namespace "
@@ -266,21 +275,6 @@ or an okay with the sig-contents"
             (sig-contents-includes sig)
             :from-end t
             :initial-value syn)))
-
-
-;; (defparameter *test* (error-type:ok-or-error (parse-sig '((fun foo a b) - +))))
-;; (defparameter *test-2* (copy-structure *test*))
-;; (setf (sig-contents-includes *test-2*) (list *test*))
-;; (alias-signature foo *blah* *test-2* 3)
-
-;; (defparameter *x* #S(SIG-CONTENTS
-;;                      :VALS NIL
-;;                      :FUNS (#S(FN-SIGS :FN FOO :ARGS (A B)))
-;;                      :MACROS NIL
-;;                      :INCLUDES NIL
-;;                      :OTHERS (+ -)))
-
-
 ;; Load Forms-----------------------------------------------------------------------------
 (defmethod make-load-form ((s sig-contents) &optional environment)
   (declare (ignore environment))
@@ -293,12 +287,4 @@ or an okay with the sig-contents"
 (defmethod make-load-form ((f fn-sigs) &optional environment)
   (declare (ignore environment))
   `(module::make-fn-sigs :fn  (quote ,(fn-sigs-fn f))
-                        :args (quote ,(fn-sigs-args f))))
-
-;; (defparameter *application-test*
-;;   (parse-functor foocfasdfs
-;;                  (((foo (sig foo bar (fun sub arg1 arg2)))
-;;                    (baz (sig))
-;;                    (bar *test*))
-;;                   (sig)
-;;                   'stuff-goes-here)))
+                         :args (quote ,(fn-sigs-args f))))

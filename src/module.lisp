@@ -62,31 +62,7 @@ allow anonymous signatures"
                    ',(error-type:ok-or-error
                       (parse-sig terms))))
       (:struct   (ignore-errors (make-package name))
-                 (let* ((sig-exp (gensym))
-                        (diff    (gensym))
-                        (sig (cond ((or (null (car terms))
-                                       (eq '() (car terms)))
-                                    nil)
-                                   ((symbolp (car terms))        (car terms))
-                                   ((sig-contents-p (car terms)) (car terms))
-                                   (t                            (parse-sig (cdar terms)))))
-                        (upp-exp
-                         (parse-struct (cdr terms) name))
-                        (new-syn (car upp-exp))
-                        (exports (cadr upp-exp)))
-                   `(if ,sig
-                        (let* ((,sig-exp (sig-export-list ,sig ',name))
-                               (,diff    (set-difference ,sig-exp ',exports)))
-                          (when ,diff
-                            (error (error-parse-struct ,diff)))
-                          (progn
-                            ,@new-syn
-                            (export ,sig-exp ',name)
-                            (values ,(find-package name)
-                                    ,sig-exp)))
-                        (progn
-                          ,@new-syn
-                          ,@(final-struct exports name)))))
+                 (parse-struct (car terms) (cdr terms) name))
       (:functor `(defparameter ,name
                    (parse-functor nil ,(cons mod-term terms)))))))
 
@@ -175,11 +151,17 @@ or an okay with the sig-contents"
           (sig-list sig-contents)))
 
 
-(declaim (ftype (function (list utility:package-designator) list) parse-struct))
-(defun parse-struct (syntax package)
+(declaim (ftype (function ((or symbol list sig-contents) list utility:package-designator) list)
+                parse-struct))
+(defun parse-struct (sig syntax package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
-  (let* ((pass1
+  (let* ((sig
+          (cond ((or (null sig) (eq '() sig)) nil)
+                ((symbolp sig)                (symbol-value sig))
+                ((sig-contents-p sig)         sig)
+                (t                            (parse-sig (cdr sig)))))
+         (pass1
           (utility:foldl-map
            (lambda (change-export syntax)
              (let ((params (expanders:recursively-change
@@ -199,7 +181,21 @@ or an okay with the sig-contents"
          (pass2 (mapcar (lambda (x)
                           (expanders:recursively-change-symbols x package change-set))
                         syntax)))
-    (list pass2 exports)))
+
+    (if sig
+        (let* ((sig-exp (sig-export-list sig package))
+               (diff    (set-difference sig-exp exports)))
+          (progn
+            `(when ,diff
+               (error (error-parse-struct ,diff)))
+            `(progn
+               ,@pass2
+               (export ',sig-exp ',package)
+               (values ,(find-package package)
+                       ',sig-exp))))
+        `(progn
+           ,@pass2
+           ,@(final-struct exports package)))))
 
 (declaim (ftype (function (t utility:package-designator) list) final-struct))
 (defun final-struct (exports package)

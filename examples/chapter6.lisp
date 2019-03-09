@@ -28,13 +28,10 @@
   (:= ref x))
 
 
-
 (defpackage :chapter-6
   (:use #:cl #:module))
 
 (in-package :chapter-6)
-
-
 
 ;;; General functions---------------------------------------------------------------------------------
 
@@ -56,7 +53,6 @@
 
 (defmodule unique struct *query*
   (defparameter name "unique")
-
   (defun create (start-at)
     (reference:ref start-at))
 
@@ -75,8 +71,7 @@
 
   (defmethod print-object ((obj cwd) stream)
       (print-unreadable-object (obj stream :type t)
-        (with-accessors ((val cwd-val)) obj
-          (format stream "{~a}" val))))
+        (format stream "{~a}" (cwd-val obj))))
 
   (defun create (cwd)
     (make-instance 'cwd :val cwd))
@@ -136,3 +131,14 @@
 
 ;; (dispatch *table* (list "ls" "./"))
 ;; (dispatch *table* (list "unique" '()))
+
+
+(defparameter *functor*
+  (locally (declare #+sbcl(sb-ext:muffle-conditions cl:warning))
+    (module::parse-functor nil (((foo *query*))
+                               (sig  (fun eval))
+                               (defparameter *value* (foo.create 0))
+                               (defun eval ()
+                                 (foo.eval-t *value* '()))))))
+
+(funcall *functor* 'baz 'unique)

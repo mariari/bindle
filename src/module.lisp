@@ -82,7 +82,8 @@ allow anonymous signatures"
                           (progn
                             ,@new-syn
                             (export ,sig-exp ',name)
-                            ,(find-package name)))
+                            (values ,(find-package name)
+                                    ,sig-exp)))
                         (progn
                           ,@new-syn
                           ,@(final-struct exports name)))))
@@ -195,7 +196,8 @@ or an okay with the sig-contents"
   (list (list 'export
               (list 'quote exports)
               (list 'find-package (list 'quote package)))
-        (list 'find-package (list 'quote package))))
+        (list 'values (list 'find-package (list 'quote package))
+                (list 'quote exports))))
 
 (defun error-parse-struct (x)
   (format nil
@@ -205,9 +207,12 @@ or an okay with the sig-contents"
 (defmacro parse-functor (sym syntax)
   (let* ((constraints (car  syntax))
          (sig         (cadr syntax))
-         (sig         (if (listp sig)
-                          (error-type:ok-or-error (parse-sig (cdr sig)))
-                          (symbol-value sig)))
+         (sig         (cond ((consp sig)
+                             (error-type:ok-or-error (parse-sig (cdr sig))))
+                            ((listp sig)
+                             sig)
+                            ((symbolp sig)
+                             (symbol-value sig))))
          (body        (cddr syntax))
          (functors    (mapcar (lambda (constraint)
                                 (let ((name (car constraint))
@@ -221,22 +226,26 @@ or an okay with the sig-contents"
                                               (symbol-value sig)))))
                               constraints))
          (name             (gensym "MODULE-NAME"))
+         (mod              (gensym "MOD"))
+         (exps             (gensym "EXPS"))
          (args             (cons name (mapcar (lambda (x) (gensym (symbol-name (car x))))
                                               (car syntax)))))
     `(lambda ,args
        (declare (ignorable ,@(cdr args)))
-       ;; so the prefix is going to be appended to all the symbols 
+       ;; so the prefix is going to be appended to all the symbols
        ,(reduce (lambda (arg-functor syn)
                   `(alias-signature ,(functor-constraint-name (cadr arg-functor))
                                     ,(car arg-functor)
                                     ,(functor-constraint-conts (cadr arg-functor))
                                     ,syn))
                 (mapcar #'list (cdr args) functors)
-                :initial-value `(prog1 (defmodule-named ,name struct ,sig ,@body)
-                                  (rename-package ',name
-                                                  ,(if sym
-                                                       `(concat-symbol ',sym ,name)
-                                                       name)))
+                :initial-value
+                `(multiple-value-bind (,mod ,exps) (defmodule ,name struct ,sig ,@body)
+                   ,mod
+                   ,(let ((value (if sym `(concat-symbol ',sym ,name) name)))
+                      `(prog2 (ignore-errors (delete-package ,value))
+                           (make-package ,value :use '(,name))
+                         (export ,exps ,value))))
                 :from-end t))))
 
 

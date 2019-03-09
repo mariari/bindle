@@ -10,7 +10,7 @@
    (:file "aliasing")
    (:file "set")
    (:file "diff-list")
-   (:file "expanders" :depends-on ("utility" "set"))
+   (:file "expanders" :depends-on ("utility" "set" "diff-list"))
    (:file "module" :depends-on ("error-type" "expanders")))
   :in-order-to ((asdf:test-op (asdf:test-op :cl-module-functor/test))))
 

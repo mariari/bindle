@@ -13,15 +13,15 @@
   (is (equalp
        (list 3 2 1)
        (bindle.diff-list:to-list d-list)))
-      
+
   (is (equalp
        (list 4 3 2 1)
        bindle.diff-list::(to-list (d-cons 4 d-list))))
-  
+
   (is (equalp
        (list 3 2 1 3 2 1)
        bindle.diff-list::(to-list (d-append d-list d-list))))
-  
+
   (is (equalp
        (list 3 2 1 0)
        bindle.diff-list::(to-list (d-snoc d-list 0)))))

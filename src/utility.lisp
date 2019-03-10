@@ -113,8 +113,9 @@ source code but is not exposed"
   "crates an alias for variables in one namespace to another locally"
   `(let ,(mapcar (lambda (x)
                    `(,(concat-symbol prefix x)
-                      (find-symbol ,(symbol-name x)
-                                   ,namespace)))
+                      (symbol-value
+                       (find-symbol ,(symbol-name x)
+                                    ,namespace))))
                  forms)
      (declare (ignorable
                  ,@(mapcar (lambda (x) (concat-symbol prefix x)) forms)))

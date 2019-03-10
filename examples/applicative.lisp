@@ -12,12 +12,15 @@
   (defmodule *monad* sig
     (fun return m)
     (fun bind f ms)
-    (fun map  f ms)))
+    (fun map  f ms))
+
+  (defmodule *app* sig
+    return app map mapn))
 
 (eval-when (:compile-toplevel :execute)
 
   ;; currently don't have module includes... could easily derive it!
-  (defmodule make ((mod *basic*)) ()
+  (defmodule make ((mod *basic*)) *app*
     (defun return (ts)
       (mod.return ts))
 
@@ -35,8 +38,8 @@
     (defun mapn (f arg1 &rest args)
       (reduce (lambda (acc x) (app acc x)) args :initial-value (map f arg1))))
 
-  ;; since we don't have nested modules yet, we don't give a signature for what we're given back!!
-  (defmodule of-monad ((M *monad*)) ()
+  ;; we need to give *app* for it to export the nested funcall call, for whatever reason
+  (defmodule of-monad ((M *monad*)) *app*
     (let ((name
            (defmodule struct *basic*
              (defun return (x)
@@ -45,15 +48,9 @@
              (defun app (f-app app)
                (M.bind (lambda (f) (M.map f app)) f-app))
 
-             (defparameter map (list :custom M.map)))))
-      ;; I shouldn't need to multiple-value-bind here
-      ;; it should already export to the right name-space
-      (multiple-value-bind (mod exps) (funcall make module:*functor-name* name)
-        ;; this even though it shows the correct data
-        ;; does not export anything to the right namespace...
-        ;; just odd, find fix, else I'll need to make an export macro
-        (export exps module:*functor-name*)
-        mod)))
+             (defparameter map (list :custom #'M.map)))))
+
+      (funcall make module:*functor-name* name)))
 
   (defmodule list-monad struct *monad*
     (defun map (f xs)
@@ -66,4 +63,4 @@
 
   (funcall of-monad 'list-app 'list-monad))
 
-(print (list-app::derived-map #'1+ (list 1 2 3)))
+(print (list-app:map #'1+ (list 1 2 3)))

@@ -65,7 +65,7 @@ allow anonymous signatures"
                       (parse-sig terms))))
       (:struct   (ignore-errors (make-package name))
                  (parse-struct (car terms) (cdr terms) name))
-      (:functor `(defparameter ,name
+      (:functor `(setf (symbol-function ',name)
                    (parse-functor nil ,(cons mod-term terms)))))))
 
 (defmacro defmodule (&body terms)

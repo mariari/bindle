@@ -40,17 +40,15 @@
 
   ;; we need to give *app* for it to export the nested funcall call, for whatever reason
   (defmodule of-monad ((M *monad*)) *app*
-    (let ((name
-           (defmodule struct *basic*
-             (defun return (x)
-               (M.return x))
+    (make module:*functor-name*
+          (defmodule struct *basic*
+            (defun return (x)
+              (M.return x))
 
-             (defun app (f-app app)
-               (M.bind (lambda (f) (M.map f app)) f-app))
+            (defun app (f-app app)
+              (M.bind (lambda (f) (M.map f app)) f-app))
 
-             (defparameter map (list :custom #'M.map)))))
-
-      (funcall make module:*functor-name* name)))
+            (defparameter map (list :custom #'M.map)))))
 
   (defmodule list-monad struct *monad*
     (defun map (f xs)
@@ -61,6 +59,6 @@
 
     (defun return (x) (list x)))
 
-  (funcall of-monad 'list-app 'list-monad))
+  (of-monad 'list-app 'list-monad))
 
 (print (list-app:map #'1+ (list 1 2 3)))

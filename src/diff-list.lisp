@@ -55,10 +55,10 @@ into a classic list whenever needed")
 (defun d-snoc (d-list x)
                                         ; to add a value at the end we construct another
                                         ; continuation but this time fill in before `cont`
-  (let ((cont (diff-list-cont d-list))
-        (make-diff-list
-         :cont (lambda (k)
-                 (funcall cont (cons x k)))))))
+  (let ((cont (diff-list-cont d-list)))
+    (make-diff-list
+     :cont (lambda (k)
+             (funcall cont (cons x k))))))
 
 (defun to-list (cont)
   (funcall (diff-list-cont cont) '()))

@@ -14,7 +14,7 @@
     (fun bind f ms)
     (fun map  f ms)))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
+(eval-when (:compile-toplevel :execute)
 
   ;; currently don't have module includes... could easily derive it!
   (defmodule make ((mod *basic*)) ()
@@ -66,4 +66,4 @@
 
   (funcall of-monad 'list-app 'list-monad))
 
-(print (list-app::return '3))
+(print (list-app::derived-map #'1+ (list 1 2 3)))

@@ -454,8 +454,13 @@ accordingly"
 (defun flet-handler (syntax package change-set)
   (fns-handler-gen syntax package change-set nil))
 
-
+(defun module-handler (syntax package change-set)
+  (declare (ignore package change-set))
+  (make-handler syntax))
 ;; Add the handlers
+
+(add-handler 'defmodule
+             #'module-handler)
 
 (add-handler 'labels
              #'labels-handler)

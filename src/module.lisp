@@ -4,7 +4,7 @@
 anonymous modules, module signatures, and other life improvements to CL
 package system")
   (:use #:cl #:error-type #:utility #:expanders)
-  (:export #:defmodule #:defmodule-named))
+  (:export #:defmodule #:defmodule-named #:*functor-name*))
 
 (in-package module)
 
@@ -12,6 +12,8 @@ package system")
 (defstruct fn-sigs
   fn
   (args '() :type list))
+
+(defparameter *functor-name* (gensym "FUNCTOR-NAME"))
 
 (defstruct sig-contents
   "a container that holds declarations of the fields below... going to be under
@@ -63,7 +65,7 @@ allow anonymous signatures"
                       (parse-sig terms))))
       (:struct   (ignore-errors (make-package name))
                  (parse-struct (car terms) (cdr terms) name))
-      (:functor `(defparameter ,name
+      (:functor `(setf (symbol-function ',name)
                    (parse-functor nil ,(cons mod-term terms)))))))
 
 (defmacro defmodule (&body terms)
@@ -233,7 +235,8 @@ or an okay with the sig-contents"
                                               (error-type:ok-or-error (parse-sig (cdr sig)))
                                               (symbol-value sig)))))
                               constraints))
-         (name        (gensym "MODULE-NAME"))
+         (name        '*functor-name*)
+         (struct-name (gensym "Struct-name"))
          (mod         (gensym "MOD"))
          (exps        (gensym "EXPS"))
          (args        (cons name (mapcar (lambda (x) (gensym (symbol-name (car x))))
@@ -247,12 +250,16 @@ or an okay with the sig-contents"
                                     ,syn))
                 (mapcar #'list (cdr args) functors)
                 :initial-value
-                `(multiple-value-bind (,mod ,exps) (defmodule ,name struct ,sig ,@body)
+                `(multiple-value-bind (,mod ,exps) (defmodule ,struct-name struct ,sig ,@body)
                    ,mod
                    ,(let ((value (if sym `(concat-symbol ',sym ,name) name)))
-                      `(prog2 (ignore-errors (delete-package ,value))
-                           (make-package ,value :use '(,name))
-                         (export ,exps ,value))))
+                      `(values
+                        (progn
+                          (ignore-errors (delete-package ,value))
+                          (make-package ,value :use '(,struct-name)))
+                        (prog1
+                            ,exps
+                          (export ,exps ,value)))))
                 :from-end t))))
 
 (defmacro alias-signature (prefix namespace sig body)

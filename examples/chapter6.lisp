@@ -46,10 +46,14 @@
   (symbol-value (find-symbol (symbol-name name) module)))
 
 ;;;; Query Handler-----------------------------------------------------------------------------------
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmodule *query* sig
+    create eval-t
+    (val name))
 
-(defmodule *query* sig
-  create eval-t
-  (val name))
+  (defmodule *query-instance-handler* sig
+    (val query-handler)
+    (val this)))
 
 (defmodule unique struct *query*
   (defparameter name "unique")
@@ -84,10 +88,6 @@
           (list :ok (directory dir)))
         (list :error "Sexp is not a string"))))
 
-(defmodule *query-instance-handler* sig
-  (val query-handler)
-  (val this))
-
 ;; needs to be a macro because gensym will fail on us at the top level
 (defmacro build-instacne (q config &key (name (gensym)))
   `(defmodule ,name struct *query-instance-handler*
@@ -120,13 +120,13 @@
 
 (defparameter *table* (build-dispatch-tables (list *unique-instance* *list-dir-instance*)))
 
-(defmodule *functor* ((foo *query*)) (sig (fun eval))
+(defmodule fun-test ((foo *query*)) (sig (fun eval))
   (locally (declare #+sbcl(sb-ext:muffle-conditions cl:warning))
     (defparameter *value* (foo.create 0))
     (defun eval ()
       (foo.eval-t *value* '()))))
 
-(funcall *functor* 'baz 'unique)
+(fun-test 'baz 'unique)
 
 
 ;; (dispatch *table* (list "ls" "./"))

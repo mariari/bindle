@@ -26,12 +26,15 @@ can properly export the symbols to the right namespace")
 (defstruct exports
   "Handles lists of exports, has functions and variables, so one doesn't accidently
 change a function when they want to change a variable and vise versa"
-  (fn  bindle.diff-list::+empty+ :type bindle.diff-list::diff-list)
-  (var bindle.diff-list::+empty+ :type bindle.diff-list::diff-list))
+  (fn  bindle.diff-list::+empty+ :type bindle.diff-list:diff-list)
+  (var bindle.diff-list::+empty+ :type bindle.diff-list:diff-list))
+
+(defun export-to-d-list (exports)
+  (bindle.diff-list:d-append (exports-fn  exports)
+                             (exports-var exports)))
 
 (defun export-to-list (exports)
-  (append (exports-fn  exports)
-          (exports-var exports)))
+  (bindle.diff-list::to-list (export-to-d-list exports)))
 
 (defstruct export-set
   "Contains two sets, one set that has change functions, and another set that has chagned
@@ -109,10 +112,9 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (make-export-set :fn (bindle.set:add fn (export-set-fn set))
                    :var (export-set-var set)))
 
-(defun join-exports-to-set (export set)
-  "Joins an exports to a export-set"
-  (make-export-set :fn  (bindle.set:add-seq (exports-fn export)  (export-set-fn set))
-                   :var (bindle.set:add-seq (exports-var export) (export-set-fn set))))
+(defun exports-into-export-set (exp set)
+  (make-export-set :fn  (bindle.set:add-seq (exports-fn exp)  (export-set-fn set))
+                   :var (bindle.set:add-seq (exports-var exp) (export-set-var set))))
 
 (defun join-exports (e1 e2 &rest es)
   (labels ((f (e1 e2) (make-exports :fn  (bindle.diff-list::d-append (exports-fn e1) (exports-fn e2))
@@ -151,9 +153,6 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
    (bindle.set:mem elem (export-set-fn set))
    (bindle.set:mem elem (export-set-var set))))
 
-(defun exports-into-export-set (exp set)
-  (make-export-set :fn  (bindle.set:add-seq (exports-fn exp)  (export-set-fn set))
-                   :var (bindle.set:add-seq (exports-var exp) (export-set-var set))))
 
 
 ;;;; Global expander table----------------------------------------------------------------
@@ -278,7 +277,7 @@ the trigger function also takes a set that determines what symbols to export if 
              (:stop
               (make-change-params :syntax  (stop-changed handle)
                                   :exports (stop-export handle)
-                                  :set     (join-exports-to-set (stop-export handle)
+                                  :set     (exports-into-export-set (stop-export handle)
                                                                 change-set)))
              (:recursively
               (let* ((change-set   (exports-into-export-set (recursively-export handle)
@@ -291,7 +290,7 @@ the trigger function also takes a set that determines what symbols to export if 
                      (exports      (join-exports (recursively-export handle)
                                                  (change-params-exports inner-change))))
                 (make-change-params
-                 :set     (join-exports-to-set exports change-set)
+                 :set     (exports-into-export-set exports change-set)
                  :exports exports
                  :syntax  (append (recursively-changed handle)
                                   (change-params-syntax inner-change))))))))

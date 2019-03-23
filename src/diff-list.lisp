@@ -17,6 +17,8 @@ into a classic list whenever needed")
              ; the identity function
 
 (defstruct diff-list
+  (:print-function (lambda (p s k)
+                     (format s "A") (funcall p ())))
   (cont empty :type (function (t) list)))
 
 (defparameter +empty+

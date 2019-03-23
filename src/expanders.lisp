@@ -68,7 +68,7 @@ to the sexp that is left"
   "the CHANGED field is aliased augmented syntax of the entire sexp, defmodule will do no
 extra work The EXPORT fields tells defmodule what functions should be exported if no
 signature is given (mimicing, no signature export all!!)"
-  (changed '()            :type list)
+  (changed '()             :type list)
   (export  +empty-exports+ :type exports))
 
 (defvar +empty-handle+ (make-stop))
@@ -364,6 +364,19 @@ accordingly"
                   :export       (export-fn_ (alias-export alias) new-cadr) 
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
+(bindle.diff-list:to-list
+ (expanders::exports-var
+  (expanders::stop-export
+   (expanders::make-stop
+    :changed '(defclass test::name ()
+               ((name :accessor test::name :reader test::read-name
+                 :writer test::set-name)
+                lisp))
+    :export (expanders::make-exports
+             :fn (bindle.diff-list::of-list
+                  '(test::set-name test::read-name test::name test::name))
+             :var (bindle.diff-list::of-list
+                   '(test::set-name)))))))
 
 
 (defun defclass-handler (syntax package change-set)
@@ -454,13 +467,8 @@ accordingly"
 (defun flet-handler (syntax package change-set)
   (fns-handler-gen syntax package change-set nil))
 
-(defun module-handler (syntax package change-set)
-  (declare (ignore package change-set))
-  (make-handler syntax))
-;; Add the handlers
 
-(add-handler 'defmodule
-             #'module-handler)
+;; Add the handlers
 
 (add-handler 'labels
              #'labels-handler)

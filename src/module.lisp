@@ -90,7 +90,7 @@ allow anonymous signatures"
       (list :ok :functor)
       (let ((str-term (and (symbolp term) (symbol-name term))))
         (cond ((equal str-term "SIG")    (list :ok :sig))
-              ((equal str-term "STRUCT") (list :ok :struct))\o
+              ((equal str-term "STRUCT") (list :ok :struct))
               ((equal str-term "FUNCTOR") (list :ok :functor))
               (t
                (list :error

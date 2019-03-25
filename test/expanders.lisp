@@ -73,11 +73,11 @@
        (expanders::make-stop
         :changed '(defclass test::name ()
                    ((name :accessor test::accessor-name :reader test::read-name
-                     :writer test::name)
+                     :writer test::set-name)
                     lisp))
         :export (expanders::make-exports
                  :fn (bindle.diff-list::of-list
-                      '(test::set-name test::read-name test::accessor-name test::name))
+                      '(test::set-name test::read-name test::accessor-name))
                  :var (bindle.diff-list::of-list
                        '(test::name)))))))
 
@@ -104,3 +104,18 @@
 ;; (flet-handler '(labels ((blah (x) (if (zerop x) 1 (foo (1- x))))
 ;;                                      (foo (x)  (if (zerop x) 1 (blah (1- x)))))
 ;;                              (blah 2)) 'test bindle.set:+empty+)
+
+
+;; (bindle.diff-list:to-list
+;;  (expanders::exports-var
+;;   (expanders::stop-export
+;;    (expanders::make-stop
+;;     :changed '(defclass test::name ()
+;;                ((name :accessor test::name :reader test::read-name
+;;                  :writer test::set-name)
+;;                 lisp))
+;;     :export (expanders::make-exports
+;;              :fn (bindle.diff-list::of-list
+;;                   '(test::set-name test::read-name test::name test::name))
+;;              :var (bindle.diff-list::of-list
+;;                    '(test::set-name)))))))

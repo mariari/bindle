@@ -364,19 +364,6 @@ accordingly"
                   :export       (export-fn_ (alias-export alias) new-cadr) 
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
-(bindle.diff-list:to-list
- (expanders::exports-var
-  (expanders::stop-export
-   (expanders::make-stop
-    :changed '(defclass test::name ()
-               ((name :accessor test::name :reader test::read-name
-                 :writer test::set-name)
-                lisp))
-    :export (expanders::make-exports
-             :fn (bindle.diff-list::of-list
-                  '(test::set-name test::read-name test::name test::name))
-             :var (bindle.diff-list::of-list
-                   '(test::set-name)))))))
 
 
 (defun defclass-handler (syntax package change-set)

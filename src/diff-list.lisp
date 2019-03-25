@@ -16,9 +16,10 @@ into a classic list whenever needed")
   (lambda (k) k)) ; an empty difference list is equivalent to
              ; the identity function
 
-(defstruct diff-list
-  (:print-function (lambda (p s k)
-                     (format s "A") (funcall p ())))
+(defstruct (diff-list
+             (:print-function (lambda (p s k)
+                                (declare (ignore k))
+                                (format s "~A" (funcall (diff-list-cont p) '())))))
   (cont empty :type (function (t) list)))
 
 (defparameter +empty+

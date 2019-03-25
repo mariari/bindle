@@ -113,8 +113,8 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                    :var (export-set-var set)))
 
 (defun exports-into-export-set (exp set)
-  (make-export-set :fn  (bindle.set:add-seq (exports-fn exp)  (export-set-fn set))
-                   :var (bindle.set:add-seq (exports-var exp) (export-set-var set))))
+  (make-export-set :fn  (bindle.set:add-seq (bindle.diff-list:to-list (exports-fn exp))  (export-set-fn set))
+                   :var (bindle.set:add-seq (bindle.diff-list:to-list (exports-var exp)) (export-set-var set))))
 
 (defun join-exports (e1 e2 &rest es)
   (labels ((f (e1 e2) (make-exports :fn  (bindle.diff-list:d-append (exports-fn e1) (exports-fn e2))
@@ -202,7 +202,7 @@ the trigger function also takes a set that determines what symbols to export if 
 ;; Note we can compile this more efficiently based on arguments
 ;; maybe make a macro that does this for me....
 ;; for example only the last form is used by let and let*
-;; Note2: This is only ever used for arguments, so it's safe to 
+;; Note2: This is only ever used for arguments, so it's safe to
 (defun alias-handler-gen* (syntax package change-set *p &optional ignore)
   (macrolet ((update-utility (symb curr-set changed)
                `(progn
@@ -270,8 +270,8 @@ the trigger function also takes a set that determines what symbols to export if 
          (make-change-params :syntax (utility:intern-sym syntax package)
                              :set    change-set))
         ((and (listp syntax)
-            (symbolp (car syntax))
-            (get-handler (car syntax)))
+              (symbolp (car syntax))
+              (get-handler (car syntax)))
          (let ((handle (funcall (get-handler (car syntax)) syntax package change-set)))
            (ecase (handle-tag handle)
              (:stop
@@ -352,13 +352,23 @@ accordingly"
   (cadr-handler syntax package change-set nil))
 
 
-(defvar *defun-keywords* '(&key &optional &aux &rest))
+(defvar *simple-lambda-list-keywords* '(&key &optional &aux &rest))
+
+(defun lambda-handler (syntax package change-set)
+  (let ((alias (alias-handler-gen* (cadr syntax)
+                                   package change-set t
+                                   *simple-lambda-list-keywords*)))
+    (make-handler (list (car syntax)
+                        (alias-changed alias))
+                  :export       (alias-export alias)
+                  :export-local (alias-export-local alias)
+                  :resume-at    (cddr syntax))))
 
 (defun defun-handler (syntax package change-set)
   (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
          (alias    (alias-handler-gen* (caddr syntax)
                                        package change-set t
-                                       *defun-keywords*)))
+                                       *simple-lambda-list-keywords*)))
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
@@ -456,8 +466,14 @@ accordingly"
 (defun flet-handler (syntax package change-set)
   (fns-handler-gen syntax package change-set nil))
 
+(defun module-handler (syntax package change-set)
+  (declare (ignore change-set package))
+  (make-handler syntax))
 
 ;; Add the handlers
+
+(add-handler 'defmodule
+             #'module-handler)
 
 (add-handler 'labels
              #'labels-handler)
@@ -476,6 +492,9 @@ accordingly"
 
 (add-handler 'defun
              #'defun-handler)
+
+(add-handler 'lambda
+             #'lambda-handler)
 
 (add-handler 'defparameter
              #'var-cadr-handler)

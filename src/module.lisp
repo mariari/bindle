@@ -129,7 +129,6 @@ or an okay with the sig-contents"
                                               "the module signature includes a "
                                               sym
                                               " please change it to val, macro, fun or include")))))))))
-          
           xs)
     (list :ok sig-conts)))
 
@@ -171,7 +170,6 @@ or an okay with the sig-contents"
                             syntax
                             package
                             (cadr change-export))))
-               ;; use difference lists here later!
                (list (list (expanders:join-exports (expanders:change-params-exports params)
                                                    (car change-export))
                            (expanders:change-params-set params))

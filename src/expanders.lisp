@@ -26,15 +26,15 @@ can properly export the symbols to the right namespace")
 (defstruct exports
   "Handles lists of exports, has functions and variables, so one doesn't accidently
 change a function when they want to change a variable and vise versa"
-  (fn  bindle.diff-list::+empty+ :type bindle.diff-list:diff-list)
-  (var bindle.diff-list::+empty+ :type bindle.diff-list:diff-list))
+  (fn  bindle.diff-list:+empty+ :type bindle.diff-list:diff-list)
+  (var bindle.diff-list:+empty+ :type bindle.diff-list:diff-list))
 
 (defun export-to-d-list (exports)
   (bindle.diff-list:d-append (exports-fn  exports)
                              (exports-var exports)))
 
 (defun export-to-list (exports)
-  (bindle.diff-list::to-list (export-to-d-list exports)))
+  (bindle.diff-list:to-list (export-to-d-list exports)))
 
 (defstruct export-set
   "Contains two sets, one set that has change functions, and another set that has chagned
@@ -97,11 +97,11 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 (defun export-var_ (exp var)
   "A lens to add vars"
   (make-exports :fn (exports-fn exp)
-                :var (bindle.diff-list::d-cons var (exports-var exp))))
+                :var (bindle.diff-list:d-cons var (exports-var exp))))
 
 (defun export-fn_ (exp fn)
   "A lens to add vars"
-  (make-exports :fn  (bindle.diff-list::d-cons fn (exports-fn exp))
+  (make-exports :fn  (bindle.diff-list:d-cons fn (exports-fn exp))
                 :var (exports-var exp)))
 
 (defun export-set-var_ (set var)
@@ -117,8 +117,8 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                    :var (bindle.set:add-seq (exports-var exp) (export-set-var set))))
 
 (defun join-exports (e1 e2 &rest es)
-  (labels ((f (e1 e2) (make-exports :fn  (bindle.diff-list::d-append (exports-fn e1) (exports-fn e2))
-                                    :var (bindle.diff-list::d-append (exports-var e1) (exports-var e2)))))
+  (labels ((f (e1 e2) (make-exports :fn  (bindle.diff-list:d-append (exports-fn e1) (exports-fn e2))
+                                    :var (bindle.diff-list:d-append (exports-var e1) (exports-var e2)))))
     (reduce #'f (list* e2 es) :initial-value e1)))
 
 (defun join-handle (a1 a2)
@@ -278,7 +278,7 @@ the trigger function also takes a set that determines what symbols to export if 
               (make-change-params :syntax  (stop-changed handle)
                                   :exports (stop-export handle)
                                   :set     (exports-into-export-set (stop-export handle)
-                                                                change-set)))
+                                                                    change-set)))
              (:recursively
               (let* ((change-set   (exports-into-export-set (recursively-export handle)
                                                             change-set))
@@ -296,8 +296,8 @@ the trigger function also takes a set that determines what symbols to export if 
                                   (change-params-syntax inner-change))))))))
         ((consp syntax)
          (let* ((first (if (and (symbolp (car syntax))
-                              (utility:curr-packagep (car syntax))
-                              (bindle.set:mem (car syntax) (export-set-fn change-set)))
+                                (utility:curr-packagep (car syntax))
+                                (bindle.set:mem (car syntax) (export-set-fn change-set)))
                            (utility:intern-sym (car syntax) package)
                            (car syntax)))
                 (state-syntax
@@ -330,7 +330,8 @@ accordingly"
          (utility:intern-sym syntax package))
         ((listp syntax)
          (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
-        (t syntax)))
+        (t
+         syntax)))
 
 ;;;; Predefined handlers------------------------------------------------------------------
 (defun cadr-handler (syntax package change-set fn?)
@@ -340,8 +341,8 @@ accordingly"
     (make-handler (list (car syntax) new-cadr)
                   :export
                   (if fn?
-                      (make-exports :fn (bindle.diff-list::of-list (list new-cadr)))
-                      (make-exports :var (bindle.diff-list::of-list (list new-cadr))))
+                      (make-exports :fn (bindle.diff-list:of-list (list new-cadr)))
+                      (make-exports :var (bindle.diff-list:of-list (list new-cadr))))
                   :resume-at (cddr syntax))))
 
 (defun fn-cadr-handler (syntax package change-set)
@@ -361,7 +362,7 @@ accordingly"
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
-                  :export       (export-fn_ (alias-export alias) new-cadr) 
+                  :export       (export-fn_ (alias-export alias) new-cadr)
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 
@@ -372,7 +373,7 @@ accordingly"
          (super-classes (caddr syntax))
          (slots         (cadddr syntax))
          (options       (cddddr syntax))
-         (export        (make-exports :var (bindle.diff-list::of-list (list class-name)))))
+         (export        (make-exports :var (bindle.diff-list:of-list (list class-name)))))
     (labels ((handle-slot-options (options)
                (mapcan (lambda (key-default)
                          (if (member (car key-default)
@@ -398,7 +399,8 @@ accordingly"
 
 (defun fns-handler-gen (syntax package change-set update?)
   (let* ((fns            (cadr syntax))
-         (locally-export (make-exports :fn (bindle.diff-list::of-list (remove-if-not #'utility:curr-packagep (mapcar #'car fns)))))
+         (locally-export (make-exports :fn (bindle.diff-list:of-list
+                                            (remove-if-not #'utility:curr-packagep (mapcar #'car fns)))))
          (change-set     (if update?
                              (exports-into-export-set locally-export change-set)
                              change-set))

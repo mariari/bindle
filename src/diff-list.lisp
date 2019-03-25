@@ -8,7 +8,8 @@ into a classic list whenever needed")
            #:d-append
            #:d-snoc
            #:to-list
-           #:+empty+))
+           #:+empty+
+           #:of-list))
 
 (in-package #:bindle.diff-list)
 
@@ -69,6 +70,6 @@ into a classic list whenever needed")
   (funcall (diff-list-cont cont) '()))
 
 (defun of-list (lis)
-    (reduce #'d-cons lis
-            :initial-value +empty+
-            :from-end t))
+  (reduce #'d-cons lis
+          :initial-value +empty+
+          :from-end t))

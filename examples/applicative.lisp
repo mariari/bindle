@@ -61,4 +61,4 @@
 
   (of-monad 'list-app 'list-monad))
 
-(print (list-app:map #'1+ (list 1 2 3)))
+(print (list-app:app (list #'1+ (lambda (x) (* 2 x))) (list 1 2 3)))

@@ -1,33 +1,3 @@
-;;;; TEST MODULE---------------------------------------------------------
-(defpackage #:reference
-  (:documentation "Provides a reference")
-  (:use #:cl)
-  (:export :ref
-           :ref-p
-           :!
-           ::=))
-
-(in-package reference)
-
-(defstruct ref contents)
-
-(defun ref (x)
-  "Creates a reference out of x"
-  (make-ref :contents x))
-
-(defun ! (ref)
-  "Grabs the contents of a reference"
-  (ref-contents ref))
-
-(defun := (ref x)
-  "sets the reference value to x"
-  (setf (ref-contents ref) x))
-
-(defun (setf !) (x ref)
-  "sets the reference value to x"
-  (:= ref x))
-
-
 (defpackage :chapter-6
   (:use #:cl #:module))
 
@@ -141,3 +111,33 @@
 ;; these 2 gensyms are the same!
 (defparameter *gensym1* (make-gensym))
 (defparameter *gensym2* (make-gensym))
+
+
+;;;; TEST MODULE---------------------------------------------------------
+(defpackage #:reference
+  (:documentation "Provides a reference")
+  (:use #:cl)
+  (:export :ref
+           :ref-p
+           :!
+           ::=))
+
+(in-package reference)
+
+(defstruct ref contents)
+
+(defun ref (x)
+  "Creates a reference out of x"
+  (make-ref :contents x))
+
+(defun ! (ref)
+  "Grabs the contents of a reference"
+  (ref-contents ref))
+
+(defun := (ref x)
+  "sets the reference value to x"
+  (setf (ref-contents ref) x))
+
+(defun (setf !) (x ref)
+  "sets the reference value to x"
+  (:= ref x))

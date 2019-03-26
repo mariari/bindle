@@ -226,9 +226,7 @@ or an okay with the sig-contents"
                                 (let ((name (car constraint))
                                       (sig  (cadr constraint)))
                                   (make-functor-constraint
-                                   :name (if sym
-                                             (concat-symbol sym name)
-                                             name)
+                                   :name  (if sym (concat-symbol sym name) name)
                                    :conts (if (listp sig)
                                               (error-type:ok-or-error (parse-sig (cdr sig)))
                                               (symbol-value sig)))))

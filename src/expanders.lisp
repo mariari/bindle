@@ -421,7 +421,7 @@ accordingly"
                  ((alias-args (alias-handler-gen* (cadr syntax)
                                                   package
                                                   change-set t
-                                                  *defun-keywords*))
+                                                  *simple-lambda-list-keywords*))
                   (change-set (exports-into-export-set
                                (alias-export alias-args)
                                (car acc)))

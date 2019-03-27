@@ -125,13 +125,11 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                        :var (export-set-var set))
       set))
 
-(defun exports-into-export-set (exp set &optional package)
+(defun exports-into-export-set (exp set)
   (make-export-set
-   :fn  (bindle.set:add-seq (remove-if-not (lambda (fn) (curr-package-or-packagep fn package))
-                                           (bindle.diff-list:to-list (exports-fn exp)))
+   :fn  (bindle.set:add-seq (bindle.diff-list:to-list (exports-fn exp))
                             (export-set-fn set))
-   :var (bindle.set:add-seq (remove-if-not (lambda (var) (curr-package-or-packagep var package))
-                                           (bindle.diff-list:to-list (exports-var exp)))
+   :var (bindle.set:add-seq (bindle.diff-list:to-list (exports-var exp))
                             (export-set-var set))))
 
 (defun join-exports (e1 e2 &rest es)
@@ -166,10 +164,11 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                             :export-local (join-exports (recursively-export-local a1)
                                                         (recursively-export-local a2)))))))))
 
-(defun export-set-mem (elem set)
-  (or
-   (bindle.set:mem elem (export-set-fn set))
-   (bindle.set:mem elem (export-set-var set))))
+(defun export-set-mem-var (elem set)
+  (bindle.set:mem elem (export-set-var set)))
+
+(defun export-set-mem-fn (elem set)
+  (bindle.set:mem elem (export-set-fn set)))
 
 
 
@@ -287,7 +286,7 @@ the trigger function also takes a set that determines what symbols to export if 
    Returns back change-params"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
-              (bindle.set:mem syntax (export-set-var change-set)))
+              (export-set-mem-var syntax change-set))
          (make-change-params :syntax (utility:intern-sym syntax package)
                              :set    change-set))
         ((and (listp syntax)
@@ -320,7 +319,7 @@ the trigger function also takes a set that determines what symbols to export if 
         ((consp syntax)
          (let* ((first (if (and (symbolp (car syntax))
                                 (utility:curr-packagep (car syntax))
-                                (bindle.set:mem (car syntax) (export-set-fn change-set)))
+                                (export-set-mem-fn (car syntax) change-set))
                            (utility:intern-sym (car syntax) package)
                            (car syntax)))
                 (state-syntax
@@ -344,15 +343,19 @@ the trigger function also takes a set that determines what symbols to export if 
                                :set change-set
                                :exports +empty-exports+))))
 
-(defun recursively-change-symbols (syntax package change-set)
+(defun recursively-change-symbols (syntax package change-set &key fn?)
   "This just looks at the symbols in change-set and changes the symbols in the syntax
 accordingly"
   (cond ((and (symbolp syntax)
               (utility:curr-packagep syntax)
-              (export-set-mem syntax change-set))
+              (if fn?
+                  (export-set-mem-fn syntax change-set)
+                  (export-set-mem-var syntax change-set)))
          (utility:intern-sym syntax package))
-        ((listp syntax)
-         (mapcar (lambda (x) (recursively-change-symbols x package change-set)) syntax))
+        ((consp syntax)
+         (cons
+          (recursively-change-symbols (car syntax) package change-set :fn? t)
+          (mapcar (lambda (x) (recursively-change-symbols x package change-set)) (cdr syntax))))
         (t
          syntax)))
 
@@ -388,8 +391,8 @@ accordingly"
                   :resume-at    (cddr syntax))))
 
 (defun defun-handler (syntax package change-set)
-  (let* ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
-         (alias    (alias-handler-gen* (caddr syntax)
+  (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
+        (alias    (alias-handler-gen* (caddr syntax)
                                        package change-set t
                                        *simple-lambda-list-keywords*)))
     (make-handler (list (car syntax)
@@ -398,7 +401,6 @@ accordingly"
                   :export       (export-fn_ (alias-export alias) new-cadr package)
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
-
 
 (defun defclass-handler (syntax package change-set)
   (declare (ignore change-set))
@@ -493,10 +495,42 @@ accordingly"
   (declare (ignore change-set package))
   (make-handler syntax))
 
+(defun defgeneric-handler (syntax package change-set)
+  (declare (ignore change-set))
+  (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package)))
+    (make-handler (list* (car syntax) new-cadr (cddr syntax))
+                  :export (export-fn_ +empty-exports+ new-cadr package))))
+
+(defun defmethod-handler (syntax package change-set)
+  (let ((new-cadr (if (export-set-mem-var (cadr syntax) change-set)
+                      (utility:intern-sym-curr-package (cadr syntax) package)
+                      (cadr syntax)))
+        (alias    (alias-handler-gen* (caddr syntax)
+                                      package change-set t
+                                      *simple-lambda-list-keywords*)))
+    (make-handler (list (car syntax)
+                        new-cadr
+                        (alias-changed alias))
+                  :export       (alias-export alias)
+                  :export-local (alias-export-local alias)
+                  :resume-at    (cdddr syntax))))
+
+(defun function-handler (syntax package change-set)
+  (make-handler (list* (car syntax)
+                       (if (export-set-mem-fn (cadr syntax) change-set)
+                           (utility:intern-sym-curr-package (cadr syntax) package)
+                           (cadr syntax))
+                       (cddr syntax))))
 ;; Add the handlers
 
 (add-handler 'defmodule
              #'module-handler)
+
+(add-handler 'defgeneric
+             #'defgeneric-handler)
+
+(add-handler 'defmethod
+             #'defmethod-handler)
 
 (add-handler 'labels
              #'labels-handler)
@@ -527,3 +561,6 @@ accordingly"
 
 (add-handler 'deftype
              #'var-cadr-handler)
+
+(add-handler 'function
+             #'function-handler)

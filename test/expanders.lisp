@@ -62,6 +62,22 @@
                                     :export (expanders::make-exports
                                              :var (bindle.diff-list::of-list '(test::cool)))))))
 
+;; (module:defmodule fooz struct ()
+;;   (defun test::foo (x) x)
+;;   (+ (test::foo 2) (foo 3)))
+
+;; (module:defmodule fooz struct ()
+;;   (defclass circle () ())
+;;   (defgeneric blah (:doc "blah"))
+;;   (defmethod blah ((shape circle)) shape)
+;;   (defmethod booz ((shape circle)) shape))
+
+;; (module:defmodule fooz struct ()
+;;   (defun beep)
+;;   (function beep)
+;;   #'beep
+;;   (list boosh beep x *blah* (*blah* 3)))
+
 (test class-handler
   (is (handle-equalp
        (funcall (expanders:get-handler :defclass)

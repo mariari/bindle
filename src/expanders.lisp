@@ -94,27 +94,45 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
   (export       +empty-exports+ :type exports)
   (export-local +empty-exports+ :type exports))
 
-(defun export-var_ (exp var)
-  "A lens to add vars"
-  (make-exports :fn (exports-fn exp)
-                :var (bindle.diff-list:d-cons var (exports-var exp))))
+(defun curr-package-or-packagep (sym &optional package)
+  (or (utility:curr-packagep sym)
+      (and package (eq (symbol-package sym) (find-package package)))))
 
-(defun export-fn_ (exp fn)
-  "A lens to add vars"
-  (make-exports :fn  (bindle.diff-list:d-cons fn (exports-fn exp))
-                :var (exports-var exp)))
+(defun export-var_ (exp var &optional package)
+  "A lens to add vars, if the var is in the curr-packagep"
+  (if (curr-package-or-packagep var package)
+      (make-exports :fn (exports-fn exp)
+                    :var (bindle.diff-list:d-cons var (exports-var exp)))
+      var))
 
-(defun export-set-var_ (set var)
-  (make-export-set :fn (export-set-fn set)
-                   :var (bindle.set:add var (export-set-var set))))
+(defun export-fn_ (exp fn &optional package)
+  "A lens to add vars, if the fn is in the curr-packagep or in the designated package"
+  (if (curr-package-or-packagep fn package)
+      (make-exports :fn  (bindle.diff-list:d-cons fn (exports-fn exp))
+                    :var (exports-var exp))
+      exp))
 
-(defun export-set-fn_ (set fn)
-  (make-export-set :fn (bindle.set:add fn (export-set-fn set))
-                   :var (export-set-var set)))
+(defun export-set-var_ (set var &optional package)
+  "A lens to add vars, if the var is in the curr-packagep"
+  (if (curr-package-or-packagep var package)
+      (make-export-set :fn (export-set-fn set)
+                       :var (bindle.set:add var (export-set-var set)))
+      set))
 
-(defun exports-into-export-set (exp set)
-  (make-export-set :fn  (bindle.set:add-seq (bindle.diff-list:to-list (exports-fn exp))  (export-set-fn set))
-                   :var (bindle.set:add-seq (bindle.diff-list:to-list (exports-var exp)) (export-set-var set))))
+(defun export-set-fn_ (set fn &optional package)
+  (if (curr-package-or-packagep fn package)
+      (make-export-set :fn (bindle.set:add fn (export-set-fn set))
+                       :var (export-set-var set))
+      set))
+
+(defun exports-into-export-set (exp set &optional package)
+  (make-export-set
+   :fn  (bindle.set:add-seq (remove-if-not (lambda (fn) (curr-package-or-packagep fn package))
+                                           (bindle.diff-list:to-list (exports-fn exp)))
+                            (export-set-fn set))
+   :var (bindle.set:add-seq (remove-if-not (lambda (var) (curr-package-or-packagep var package))
+                                           (bindle.diff-list:to-list (exports-var exp)))
+                            (export-set-var set))))
 
 (defun join-exports (e1 e2 &rest es)
   (labels ((f (e1 e2) (make-exports :fn  (bindle.diff-list:d-append (exports-fn e1) (exports-fn e2))
@@ -163,7 +181,8 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 
 ;;;; Functions for dealing with the expander table----------------------------------------
 
-(declaim (ftype (function (list &key (:resume-at list)
+(declaim (ftype (function (list &key
+                                (:resume-at list)
                                 (:export exports)
                                 (:export-local exports))
                           handle)
@@ -204,12 +223,12 @@ the trigger function also takes a set that determines what symbols to export if 
 ;; for example only the last form is used by let and let*
 ;; Note2: This is only ever used for arguments, so it's safe to
 (defun alias-handler-gen* (syntax package change-set *p &optional ignore)
-  (macrolet ((update-utility (symb curr-set changed)
+  (macrolet ((update-utility (symb curr-set changed package)
                `(progn
                   (when (utility:curr-packagep ,symb)
                     (when *p
-                      (setf ,curr-set (export-set-var_ ,changed ,symb)))
-                    (setf export-local (export-var_ export-local ,symb))))))
+                      (setf ,curr-set (export-set-var_ ,changed ,symb ,package)))
+                    (setf export-local (export-var_ export-local ,symb ,package))))))
     (let* ((curr-set     change-set)
            (export-local +empty-exports+)
            (exports      +empty-exports+)
@@ -220,7 +239,7 @@ the trigger function also takes a set that determines what symbols to export if 
                  ((and (symbolp binding-pair) (member binding-pair ignore))
                   binding-pair)
                  ((symbolp binding-pair)
-                  (update-utility binding-pair curr-set curr-set)
+                  (update-utility binding-pair curr-set curr-set package)
                   (utility:intern-sym-curr-package binding-pair package))
                  ;; we have a form like ((:apple a))
                  ((and (listp binding-pair) (listp (car binding-pair)))
@@ -229,7 +248,8 @@ the trigger function also takes a set that determines what symbols to export if 
                                                      curr-set)))
                     (update-utility (cadar binding-pair)
                                     curr-set
-                                    (change-params-set changed))
+                                    (change-params-set changed)
+                                    package)
                     (setf exports (join-exports exports
                                                 (change-params-exports changed)))
                     (cons (list (caar binding-pair)
@@ -242,7 +262,8 @@ the trigger function also takes a set that determines what symbols to export if 
                          (changed    (recursively-change expression package curr-set)))
                     (update-utility symb
                                     curr-set
-                                    (change-params-set changed))
+                                    (change-params-set changed)
+                                    package)
                     (setf exports (join-exports exports
                                                 (change-params-exports changed)))
                     (cons (utility:intern-sym-curr-package symb package)
@@ -282,7 +303,9 @@ the trigger function also takes a set that determines what symbols to export if 
              (:recursively
               (let* ((change-set   (exports-into-export-set (recursively-export handle)
                                                             change-set))
-                     (inner-change (recursively-change (recursively-resume-at handle)
+                     ;; progn is there so the car isn't considered a function, but instead is as
+                     ;; it properly is, a progn
+                     (inner-change (recursively-change `(progn ,@(recursively-resume-at handle))
                                                        package
                                                        (exports-into-export-set
                                                         (recursively-export-local handle)
@@ -293,7 +316,7 @@ the trigger function also takes a set that determines what symbols to export if 
                  :set     (exports-into-export-set exports change-set)
                  :exports exports
                  :syntax  (append (recursively-changed handle)
-                                  (change-params-syntax inner-change))))))))
+                                  (cdr (change-params-syntax inner-change)))))))))
         ((consp syntax)
          (let* ((first (if (and (symbolp (car syntax))
                                 (utility:curr-packagep (car syntax))
@@ -372,7 +395,7 @@ accordingly"
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
-                  :export       (export-fn_ (alias-export alias) new-cadr)
+                  :export       (export-fn_ (alias-export alias) new-cadr package)
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 
@@ -390,7 +413,7 @@ accordingly"
                                      (list :accessor :reader :writer)
                                      :test #'eq)
                              (let ((new-accessor (utility:intern-sym (cadr key-default) package)))
-                               (setf export (export-fn_ export new-accessor))
+                               (setf export (export-fn_ export new-accessor package))
                                (list (car key-default) new-accessor))
                              key-default))
                        (utility:group 2 options))))

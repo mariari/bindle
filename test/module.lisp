@@ -54,6 +54,7 @@
                             (include ,sym-i2)))
         (list :ERROR
               "the module signature includes a MACROS please change it to val, macro, fun or include"))))))
+(defpackage #:fooz)
 
 (test defmodule
   (is

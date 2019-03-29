@@ -5,8 +5,6 @@
 
 (in-suite expanders-test)
 
-(defpackage #:test)
-
 (defun exports-equalp (ex1 ex2)
   (and
    (equalp

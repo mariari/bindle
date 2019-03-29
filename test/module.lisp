@@ -38,7 +38,8 @@
                                     ,sym-o2))
                (list :ok
                      (module::make-sig-contents :vals     (list sym-v)
-                                                :funs     (list (module::make-fn-sigs :fn sym-f :args '(arg1 arg2)))
+                                                :funs     (list (module::make-fn-sigs :fn sym-f
+                                                                                      :args '(arg1 arg2)))
                                                 :macros   (list sym-m)
                                                 :includes (list sym-i2 sym-i1)
                                                 :others   (list sym-o2 sym-o1)))))
@@ -53,3 +54,52 @@
                             (include ,sym-i2)))
         (list :ERROR
               "the module signature includes a MACROS please change it to val, macro, fun or include"))))))
+
+(test defmodule
+  (is
+   (equal
+    (macroexpand-1
+     (macroexpand-1
+      '(module:defmodule fooz struct ()
+        (defun test::foo (x) x)
+        (+ (test::foo 2) (foo 3)))))
+    '(progn
+      (defun test::foo (fooz::x) fooz::x)
+      (+ (test::foo 2) (foo 3))
+      (export 'nil (find-package 'fooz))
+      (values (find-package 'fooz) 'nil))))
+  (is
+   (equal
+    (macroexpand-1
+     (macroexpand-1
+      '(module:defmodule fooz struct ()
+        (defclass circle () ())
+        (defgeneric blah (:doc "blah"))
+        (defmethod blah ((shape circle)) shape)
+        (defmethod booz ((shape square)) shape))))
+    '(progn
+      (defclass fooz::circle nil nil)
+      (defgeneric fooz::blah
+          (:doc "blah"))
+      (defmethod fooz::blah ((fooz::shape fooz::circle)) fooz::shape)
+      (defmethod booz ((fooz::shape square)) fooz::shape)
+      (export '(fooz::blah fooz::circle) (find-package 'fooz))
+      (values (find-package 'fooz) '(fooz::blah FOOZ::CIRCLE)))))
+  (is
+   (equal
+    (macroexpand-1
+     (macroexpand-1
+      '(module:defmodule fooz struct ()
+        (defun beep () 2)
+        (function beep)
+        #'beep
+        #'boop
+        (list boosh beep x *blah* (*blah* 3)))))
+    '(progn
+      (defun fooz::beep () 2)
+      #'fooz::beep
+      #'fooz::beep
+      #'boop
+      (list boosh beep x *blah* (*blah* 3))
+      (export '(fooz::beep) (find-package 'fooz))
+      (values (find-package 'fooz) '(fooz::beep))))))

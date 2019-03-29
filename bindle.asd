@@ -16,7 +16,7 @@
 
 (asdf:defsystem :bindle/test
   :depends-on (:bindle :fiveam)
-  :description "testing inferior-shell"
+  :description "testing bindle"
   :pathname "test/"
   :components ((:file "testpkg")
                (:file "module"    :depends-on ("testpkg"))

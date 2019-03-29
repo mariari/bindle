@@ -1,4 +1,3 @@
-
 * bindle
 A first-class module system for Common Lisp with module signatures and
 module functors.
@@ -6,12 +5,13 @@ module functors.
 ** A taste of bindle
 Here's an applicative written using bindle =defmodule=.
 #+BEGIN_SRC lisp
-(defmodule *basic* sig
-    (fun return ts)
-    (fun app f-app app)
-    (val map))
+  (eval-when (:compile-toplevel :load-toplevel :execute)
+    (defmodule *basic* sig
+      (fun return ts)
+      (fun app f-app app)
+      (val map)))
 
-(defmodule make ((mod *basic*)) *app*
+  (defmodule make ((mod *basic*)) *app*
     (defun return (ts)
       (mod.return ts))
 

@@ -75,14 +75,18 @@
       '(module:defmodule fooz struct ()
         (defclass circle () ())
         (defgeneric blah (:doc "blah"))
-        (defmethod blah ((shape circle)) shape)
-        (defmethod booz ((shape square)) shape))))
+        (defmethod blah ((shape circle))
+          shape)
+        (defmethod booz ((shape square))
+          shape))))
     '(progn
       (defclass fooz::circle nil nil)
       (defgeneric fooz::blah
           (:doc "blah"))
-      (defmethod fooz::blah ((fooz::shape fooz::circle)) fooz::shape)
-      (defmethod booz ((fooz::shape square)) fooz::shape)
+      (defmethod fooz::blah ((fooz::shape fooz::circle))
+        fooz::shape)
+      (defmethod booz ((fooz::shape square))
+        fooz::shape)
       (export '(fooz::blah fooz::circle) (find-package 'fooz))
       (values (find-package 'fooz) '(fooz::blah FOOZ::CIRCLE)))))
   (is

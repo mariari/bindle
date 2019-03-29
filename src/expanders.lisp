@@ -515,6 +515,12 @@ accordingly"
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 
+(defun print-unreadable-object-handler (syntax package change-set)
+  (let ((obj-handle (recursively-change `(progn ,@(cadr syntax)) package change-set)))
+    (make-handler (list (car syntax) (cdr (change-params-syntax obj-handle)))
+                  :resume-at (cddr syntax)
+                  :export    (change-params-exports obj-handle))))
+
 (defun function-handler (syntax package change-set)
   (make-handler (list* (car syntax)
                        (if (export-set-mem-fn (cadr syntax) change-set)
@@ -522,6 +528,9 @@ accordingly"
                            (cadr syntax))
                        (cddr syntax))))
 ;; Add the handlers
+
+(add-handler 'print-unreadable-object
+             #'print-unreadable-object-handler)
 
 (add-handler 'defmodule
              #'module-handler)

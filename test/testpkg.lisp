@@ -1,5 +1,5 @@
-(defpackage :cl-module-functor-test
+(defpackage :bindle-test
   (:use #:cl #:fiveam)
   (:export #:run-tests))
 
-(in-package :cl-module-functor-test)
+(in-package :bindle-test)

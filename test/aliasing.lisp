@@ -35,7 +35,7 @@
 ;; later, for now we'll just use boolean tests
 ;; an expect framework will be made
 
-(in-package :cl-module-functor-test)
+(in-package :bindle-test)
 
 (def-suite aliasing-test
     :description "Tests the aliasing module")

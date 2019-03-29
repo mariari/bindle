@@ -1,4 +1,4 @@
-(in-package :cl-module-functor-test)
+(in-package :bindle-test)
 
 (def-suite expanders-test
     :description "Tests the expanders package")

@@ -1,4 +1,4 @@
-(in-package :cl-module-functor-test)
+(in-package :bindle-test)
 
 (defun run-tests ()
   (run! 'aliasing-test)

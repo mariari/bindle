@@ -1,4 +1,4 @@
-(in-package :cl-module-functor-test)
+(in-package :bindle-test)
 
 (def-suite diff-list-test
     :description "Test the bindle.diff-list package")

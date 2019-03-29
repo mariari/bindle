@@ -502,7 +502,7 @@ accordingly"
                   :export (export-fn_ +empty-exports+ new-cadr package))))
 
 (defun defmethod-handler (syntax package change-set)
-  (let ((new-cadr (if (export-set-mem-var (cadr syntax) change-set)
+  (let ((new-cadr (if (export-set-mem-fn (cadr syntax) change-set)
                       (utility:intern-sym-curr-package (cadr syntax) package)
                       (cadr syntax)))
         (alias    (alias-handler-gen* (caddr syntax)

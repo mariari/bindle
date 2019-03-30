@@ -113,10 +113,52 @@
    (equal
     (macroexpand-1
      (macroexpand-1
-      '(module:defmodule foo struct ()
+      '(module:defmodule fooz struct ()
         (defun blah (&key ((:apple a) 3))
           a))))
     '(progn
-      (defun foo:blah (&key ((:apple foo::a) 3)) foo::a)
-      (export '(foo:blah) (find-package 'foo))
-      (values (find-package 'foo) '(foo:blah))))))
+      (defun fooz::blah (&key ((:apple fooz::a) 3)) fooz::a)
+      (export '(fooz::blah) (find-package 'fooz))
+      (values (find-package 'fooz) '(fooz::blah)))))
+
+  (is
+   (equal
+    (macroexpand-1
+     (macroexpand-1
+      '(module:defmodule fooz struct ()
+        (defun **** (&rest fns)
+          (flet ((func (f g)
+                   (lambda (x)
+                     (tup (funcall f (fst x))
+                          (funcall g (snd x))))))
+            (reduce #'func fns :from-end t)))
+
+        (defun &&& (&rest fns)
+          (flet ((func (f g)
+                   (lambda (x)
+                     (tup (funcall f x)
+                          (funcall g x)))))
+            (reduce #'func fns :from-end t)))
+
+
+        (defun ***** (&rest functions)
+          (lambda (xs) (mapcar (lambda (f x) (funcall f x)) functions xs))))))
+
+    '(progn
+      (defun fooz::**** (&rest fooz::fns)
+        (flet ((fooz::func (fooz::f fooz::g)
+                 (lambda (fooz::x)
+                   (tup (funcall fooz::f (fst fooz::x))
+                        (funcall fooz::g (snd fooz::x))))))
+          (reduce #'fooz::func fooz::fns :from-end t)))
+      (defun fooz::&&& (&rest fooz::fns)
+        (flet ((fooz::func (fooz::f fooz::g)
+                 (lambda (fooz::x)
+                   (tup (funcall fooz::f fooz::x) (funcall fooz::g fooz::x)))))
+          (reduce #'fooz::func fooz::fns :from-end t)))
+      (defun fooz::***** (&rest fooz::functions)
+        (lambda (fooz::xs)
+          (mapcar (lambda (fooz::f fooz::x) (funcall fooz::f fooz::x))
+                  fooz::functions fooz::xs)))
+      (export '(fooz::***** fooz::&&& fooz::****) (find-package 'fooz))
+      (values (find-package 'fooz) '(fooz::***** fooz::&&& fooz::****))))))

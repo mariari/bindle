@@ -54,6 +54,7 @@
                             (include ,sym-i2)))
         (list :ERROR
               "the module signature includes a MACROS please change it to val, macro, fun or include"))))))
+
 (defpackage #:fooz)
 
 (test defmodule
@@ -107,4 +108,15 @@
       #'boop
       (list boosh beep x *blah* (*blah* 3))
       (export '(fooz::beep) (find-package 'fooz))
-      (values (find-package 'fooz) '(fooz::beep))))))
+      (values (find-package 'fooz) '(fooz::beep)))))
+  (is
+   (equal
+    (macroexpand-1
+     (macroexpand-1
+      '(module:defmodule foo struct ()
+        (defun blah (&key ((:apple a) 3))
+          a))))
+    '(progn
+      (defun foo:blah (&key ((:apple foo::a) 3)) foo::a)
+      (export '(foo:blah) (find-package 'foo))
+      (values (find-package 'foo) '(foo:blah))))))

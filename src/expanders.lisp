@@ -170,8 +170,6 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 (defun export-set-mem-fn (elem set)
   (bindle.set:mem elem (export-set-fn set)))
 
-
-
 ;;;; Global expander table----------------------------------------------------------------
 
 ;; we use equal for the test as we have to convert symbols to strings
@@ -452,7 +450,7 @@ accordingly"
                                (car acc)))
                   (params (recursively-change (cddr syntax)
                                               package
-                                              (bindle.set:add-seq
+                                              (exports-into-export-set
                                                (alias-export-local alias-args)
                                                change-set))))
                (list
@@ -463,7 +461,7 @@ accordingly"
                 (list* (utility:intern-sym-curr-package (car syntax) package)
                        (alias-changed alias-args)
                        (change-params-syntax params)))))
-           (list change-set '())
+           (list change-set +empty-exports+)
            fns)))
     (make-handler (list (car syntax) (cadr change-fns))
                   :export (cadar change-fns)
@@ -527,10 +525,37 @@ accordingly"
                            (utility:intern-sym-curr-package (cadr syntax) package)
                            (cadr syntax))
                        (cddr syntax))))
-;; Add the handlers
+
+(defun setf-handler (syntax package change-set)
+  (let* ((to-set (cadr syntax))
+         (new-to-set
+          ;; bit repetitive must be a better way to do this
+          (cond ((and (listp to-set) (equal (symbol-name (car to-set)) "SYMBOL-FUNCTION"))
+                 (list (car to-set)
+                       (utility:intern-sym-curr-package (cadr to-set) package)))
+                ((listp to-set)
+                 (list (car to-set)
+                       (if (export-set-mem-var (cadr to-set) change-set)
+                           (utility:intern-sym-curr-package (cadr to-set) package)
+                           (cadr to-set))))
+                ((export-set-mem-var to-set change-set)
+                 (utility:intern-sym-curr-package to-set package))
+                (t
+                 to-set))))
+    (make-handler (list (car syntax) new-to-set)
+                  :resume-at (cddr syntax))))
+;;; Add handlers--------------------------------------------------------------------------
 
 (add-handler 'print-unreadable-object
              #'print-unreadable-object-handler)
+
+(add-handler 'setf
+             #'setf-handler)
+
+;; the list part of the check should just fail
+;; and fall through to the t, and work properly
+(add-handler 'setq
+             #'setf-handler)
 
 (add-handler 'defmodule
              #'module-handler)

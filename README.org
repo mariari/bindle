@@ -32,3 +32,15 @@ Here's an applicative written using bindle =defmodule=.
 
 ** More
 Check out the wiki for more details.
+
+** Currently Not Supported
+- Nested modules
+  + This can be simulated rather easily, check out the wiki article on
+    it here.
+- Macros
+  + Due to how expanders work, macros are a bit annoying to deal with,
+    the wiki gives a somewhat error prone implementation here.
+    * This implementation adds a small overhead to a macro and only
+      works fully on expansions which do not export anything
+  + To properly include macro code into your project checkout the wiki
+    page here (TODO: make wiki page explaining to make an expander)

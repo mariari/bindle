@@ -35,11 +35,10 @@ into a classic list whenever needed")
   ;; instead returning a lambda function binding `k`
   ;; which `cont` is then later applied to. This lambda
   ;; is a continuation.
-  (let ((cont (diff-list-cont d-list)))
-    (make-diff-list
-     :cont (lambda (k)
-             (cons x                     ; the scalar value to be joined
-                   (funcall cont k)))))) ; application of the continuation
+  (make-diff-list
+   :cont (lambda (k)
+           (cons x                                       ; the scalar value to be joined
+                 (funcall (diff-list-cont d-list) k))))) ; application of the continuation
 
 
 ;; append of two difference lists is the application
@@ -70,6 +69,14 @@ into a classic list whenever needed")
   (funcall (diff-list-cont cont) '()))
 
 (defun of-list (lis)
-  (reduce #'d-cons lis
-          :initial-value +empty+
-          :from-end t))
+  (let ((lis (copy-list lis)))
+    (make-diff-list
+     :cont (lambda (k)
+             (setf (cdr (last lis)) k)
+             lis))))
+
+(defun of-list! (lis)
+  (make-diff-list
+   :cont (lambda (k)
+           (setf (cdr (last lis)) k)
+           lis)))

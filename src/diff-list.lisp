@@ -9,7 +9,8 @@ into a classic list whenever needed")
            #:d-snoc
            #:to-list
            #:+empty+
-           #:of-list))
+           #:of-list
+           #:nof-list))
 
 (in-package #:bindle.diff-list)
 
@@ -53,10 +54,6 @@ into a classic list whenever needed")
      :cont (lambda (k)
              (funcall cont-x (funcall cont-y k))))))
 
-;; (defun d-filter (pred cont)
-;;   (lambda (k)
-;;     ((if (funcall pred (funcall cont k))))))
-
 (defun d-snoc (d-list x)
   ;; to add a value at the end we construct another
   ;; continuation but this time fill in before `cont`
@@ -75,7 +72,9 @@ into a classic list whenever needed")
              (setf (cdr (last lis)) k)
              lis))))
 
-(defun of-list! (lis)
+(defun nof-list (lis)
+  "Like of-list, except when we evaluate the cont, we mutate
+the given list. Since this is lazy, beware this may happen at any time!!!"
   (make-diff-list
    :cont (lambda (k)
            (setf (cdr (last lis)) k)

@@ -42,7 +42,6 @@ can properly export the symbols to the right namespace")
 (defun var-cadr-handler (syntax package change-set)
   (cadr-handler syntax package change-set nil))
 
-
 (defvar *simple-lambda-list-keywords* '(&key &optional &aux &rest))
 
 (defun lambda-handler (syntax package change-set)
@@ -156,9 +155,25 @@ can properly export the symbols to the right namespace")
 (defun flet-handler (syntax package change-set)
   (fns-handler-gen syntax package change-set nil))
 
+;; (defun module-handler (syntax package change-set)
+;;   (declare (ignore change-set package))
+;;   (make-handler syntax))
+
 (defun module-handler (syntax package change-set)
-  (declare (ignore change-set package))
-  (make-handler syntax))
+  (declare (ignore change-set))
+  (let* ((first-expansion
+          (macroexpand-1 syntax))
+         (new-package-name
+          (concatenate 'string (package-name package)  "." (symbol-name (cadr first-expansion)))))
+    ;; TODO: so defun a bunch of functions that one can use in the previous package by using .
+    ;; this may be exported by the catch all, but that is fine, however this would let inner modules
+    ;; use outer module code, this should be very easy, as we have the 2nd macro expansion, and thus
+    ;; we can simply takes the last functions and do a defun alias type of thing!
+    (make-handler (macroexpand-1 (list* (car first-expansion)
+                                        new-package-name
+                                        (cddr first-expansion)))
+                  ;; :export (change-params-exports expanded-code)
+                  )))
 
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))

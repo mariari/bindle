@@ -98,46 +98,45 @@
 
 (fun-test 'baz 'unique)
 
-
 ;; (dispatch *table* (list "ls" "./"))
 ;; (dispatch *table* (list "unique" '()))
 
 ;; Gensym Failure-------------------------------------------------------------------------
 ;; gensyms on the toplevel does not work too well...
 ;; see this example here!!!
-(defmacro make-gensym ()
-  (let ((gensym (gensym)))
-    `(list ',gensym)))
+;; (defmacro make-gensym ()
+;;   (let ((gensym (gensym)))
+;;     `(list ',gensym)))
 ;; these 2 gensyms are the same!
-(defparameter *gensym1* (make-gensym))
-(defparameter *gensym2* (make-gensym))
+;; (defparameter *gensym1* (make-gensym))
+;; (defparameter *gensym2* (make-gensym))
 
 
 ;;;; TEST MODULE---------------------------------------------------------
-(defpackage #:reference
-  (:documentation "Provides a reference")
-  (:use #:cl)
-  (:export :ref
-           :ref-p
-           :!
-           ::=))
+(module:defmodule ref struct ()
+  (defclass ref ()
+    ((contents
+      :initarg :contents
+      :accessor ref-contents)))
 
-(in-package reference)
+  (defmethod print-object ((obj ref) stream)
+      (print-unreadable-object (obj stream :type t)
+        (format stream "~a" (ref-contents obj))))
 
-(defstruct ref contents)
+  (defun ref (x)
+    "Creates a reference out of x"
+    (make-instance 'ref :contents x))
 
-(defun ref (x)
-  "Creates a reference out of x"
-  (make-ref :contents x))
+  (defun ! (ref)
+    "Grabs the contents of a reference"
+    (ref-contents ref))
 
-(defun ! (ref)
-  "Grabs the contents of a reference"
-  (ref-contents ref))
+  (defun := (ref x)
+    "sets the reference value to x"
+    (setf (ref-contents ref) x))
 
-(defun := (ref x)
-  "sets the reference value to x"
-  (setf (ref-contents ref) x))
-
-(defun (setf !) (x ref)
-  "sets the reference value to x"
-  (:= ref x))
+  ;; Has to come after !, or else the second pass
+  ;; doesn't see ! as a function it is
+  (defun (setf !) (x ref)
+    "sets the reference value to x"
+    (:= ref x)))

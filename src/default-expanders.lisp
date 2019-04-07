@@ -55,14 +55,25 @@ can properly export the symbols to the right namespace")
                   :resume-at    (cddr syntax))))
 
 (defun defun-handler (syntax package change-set)
-  (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package))
+  (if (export-set-mem-fn (cadr syntax) change-set)
+      (utility:intern-sym-curr-package (cadr syntax) package)
+      (cadr syntax))
+  (let ((new-cadr (cond ((symbolp (cadr syntax))
+                         (utility:intern-sym-curr-package (cadr syntax) package))
+                        ((export-set-mem-fn (cadadr syntax) change-set)
+                         (list (caadr syntax)
+                               (utility:intern-sym-curr-package (cadadr syntax) package)))
+                        (t
+                         (cadr syntax))))
         (alias    (alias-handler-gen* (caddr syntax)
-                                       package change-set t
-                                       *simple-lambda-list-keywords*)))
+                                      package change-set t
+                                      *simple-lambda-list-keywords*)))
     (make-handler (list (car syntax)
                         new-cadr
                         (alias-changed alias))
-                  :export       (export-fn_ (alias-export alias) new-cadr package)
+                  :export       (if (symbolp new-cadr)
+                                    (export-fn_ (alias-export alias) new-cadr package)
+                                    (alias-export alias))
                   :export-local (alias-export-local alias)
                   :resume-at    (cdddr syntax))))
 

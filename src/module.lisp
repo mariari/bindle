@@ -179,9 +179,10 @@ or an okay with the sig-contents"
          (syntax     (cadr  pass1))
          (change-set (cadar pass1))
          (exports    (expanders:export-to-list (caar pass1)))
-         (pass2 (mapcar (lambda (x)
-                          (expanders:recursively-change-symbols x package change-set))
-                        syntax)))
+         (pass2
+          (mapcar (lambda (x)
+                    (expanders:change-params-syntax (expanders:recursively-change x package change-set)))
+                  syntax)))
 
     (if sig
         (let* ((sig-exp (sig-export-list sig package))

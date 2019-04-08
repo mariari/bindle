@@ -127,16 +127,14 @@
     "Creates a reference out of x"
     (make-instance 'ref :contents x))
 
+  (defun (setf !) (x ref)
+    "sets the reference value to x"
+    (:= ref x))
+
   (defun ! (ref)
     "Grabs the contents of a reference"
     (ref-contents ref))
 
   (defun := (ref x)
     "sets the reference value to x"
-    (setf (ref-contents ref) x))
-
-  ;; Has to come after !, or else the second pass
-  ;; doesn't see ! as a function it is
-  (defun (setf !) (x ref)
-    "sets the reference value to x"
-    (:= ref x)))
+    (setf (ref-contents ref) x)))

@@ -30,7 +30,9 @@ can properly export the symbols to the right namespace")
            #:alias-handler*
            #:alias-handler
            #:export-set-mem-fn
-           #:export-set-mem-var))
+           #:export-set-mem-var
+           #:export-if-mem-var
+           #:export-if-mem-fn))
 
 
 (in-package #:expanders)
@@ -183,6 +185,16 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
 (defun export-set-mem-fn (elem set)
   (bindle.set:mem elem (export-set-fn set)))
 
+(defun export-if-mem-var (elem set package)
+  (if (export-set-mem-var elem set)
+      (utility:intern-sym-curr-package elem package)
+      elem))
+
+(defun export-if-mem-fn (elem set package)
+  (if (export-set-mem-fn elem set)
+      (utility:intern-sym-curr-package elem package)
+      elem))
+
 ;;;; Global expander table----------------------------------------------------------------
 
 ;; we use equal for the test as we have to convert symbols to strings
@@ -268,15 +280,16 @@ the trigger function also takes a set that determines what symbols to export if 
                           (change-params-syntax changed))))
                  (t
                   (let* ((symb       (car binding-pair))
-                         (expression (cdr binding-pair))
-                         (changed    (recursively-change expression package curr-set)))
+                         (expression (cadr binding-pair))
+                         (changed
+                          (recursively-change expression package curr-set)))
                     (update-utility symb
                                     curr-set
                                     (change-params-set changed)
                                     package)
                     (setf exports (join-exports exports
                                                 (change-params-exports changed)))
-                    (cons (utility:intern-sym-curr-package symb package)
+                    (list (utility:intern-sym-curr-package symb package)
                           (change-params-syntax changed))))))
              syntax)))
       (make-alias :changed      change-bindings

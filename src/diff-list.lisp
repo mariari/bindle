@@ -66,11 +66,13 @@ into a classic list whenever needed")
   (funcall (diff-list-cont cont) '()))
 
 (defun of-list (lis)
-  (let ((lis (copy-list lis)))
-    (make-diff-list
-     :cont (lambda (k)
-             (setf (cdr (last lis)) k)
-             lis))))
+  (if lis
+      (let ((lis (copy-list lis)))
+        (make-diff-list
+         :cont (lambda (k)
+                 (setf (cdr (last lis)) k)
+                 lis)))
+      +empty+))
 
 (defun nof-list (lis)
   "Like of-list, except when we evaluate the cont, we mutate

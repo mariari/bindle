@@ -100,7 +100,7 @@ allow anonymous signatures"
 
 
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
-(setf (symbol-function 'update-inner-module-name) #'utility:concat-symbol)
+(setf (symbol-function 'update-inner-module-name) #'concat-symbol)
 
 
 (declaim (ftype (function (list) either-error) parse-sig))
@@ -137,9 +137,9 @@ or an okay with the sig-contents"
 ;; (declaim (ftype (function (sig-contents utility:package-designator) nil)
 ;;                 sig-export))
 (defun sig-export (sig-contents module)
-  (sig-mapc (lambda (sym) (utility:intern-sym sym module)) sig-contents))
+  (sig-mapc (lambda (sym) (intern-sym sym module)) sig-contents))
 
-(declaim (ftype (function (sig-contents utility:package-designator) list)
+(declaim (ftype (function (sig-contents package-designator) list)
                 sig-export-list))
 (defun sig-list (sig-contents)
   (append (sig-contents-vals     sig-contents)
@@ -153,7 +153,7 @@ or an okay with the sig-contents"
           (sig-list sig-contents)))
 
 
-(declaim (ftype (function ((or symbol list sig-contents) list utility:package-designator) list)
+(declaim (ftype (function ((or symbol list sig-contents) list package-designator) list)
                 parse-struct))
 (defun parse-struct (sig syntax package)
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
@@ -164,29 +164,27 @@ or an okay with the sig-contents"
                 ((sig-contents-p sig)         sig)
                 (t                            (parse-sig (cdr sig)))))
          (pass1
-          (utility:foldl-map
+          (foldl-map
            (lambda (change-export syntax)
-             (let ((params (expanders:recursively-change
+             (let ((params (recursively-change
                             syntax
                             package
                             (cadr change-export))))
-               (utility:make-fold
+               (make-fold
                 :acc
-                (list (expanders:join-exports (expanders:change-params-exports params)
-                                              (car change-export))
-                      (expanders:change-params-set params))
+                (list (join-exports (change-params-exports params)
+                                    (car change-export))
+                      (change-params-set params))
                 :place
-                (expanders:change-params-syntax params))))
-           (list expanders::+empty-exports+ expanders::+empty-export-set+)
+                (change-params-syntax params))))
+           (list +empty-exports+ expanders::+empty-export-set+)
            syntax))
-         (change-set (cadr (utility:fold-acc pass1)))
-         (exports    (expanders:export-to-list (car (utility:fold-acc pass1))))
+         (change-set (cadr (fold-acc pass1)))
+         (exports    (export-to-list (car (fold-acc pass1))))
          (pass2
           (mapcar (lambda (x)
-                    (expanders:change-params-syntax
-                     (expanders:recursively-change x package change-set)))
-                  (utility:fold-place pass1))))
-
+                    (change-params-syntax (recursively-change x package change-set)))
+                  (fold-place pass1))))
     (if sig
         (let* ((sig-exp (sig-export-list sig package))
                (diff    (set-difference sig-exp exports)))
@@ -202,7 +200,7 @@ or an okay with the sig-contents"
            ,@pass2
            ,@(final-struct exports package)))))
 
-(declaim (ftype (function (t utility:package-designator) list) final-struct))
+(declaim (ftype (function (t package-designator) list) final-struct))
 (defun final-struct (exports package)
   (list (list 'export
               (list 'quote exports)

@@ -12,7 +12,11 @@
            #:let-alias
            #:let-alias-m
            #:let-alias-v
-           #:with-unique-names))
+           #:with-unique-names
+           #:make-fold
+           #:fold-acc
+           #:fold-place
+           #:foldp))
 
 (in-package #:utility)
 
@@ -67,15 +71,17 @@ source code but is not exposed"
     (rec n xs '())))
 
 
+(defstruct fold place acc)
+
 (defun foldl-map (f init xs)
   (let* ((acc init)
          (new-list
           (mapcar (lambda (x)
-                    (let ((acc-syntax (funcall f acc x)))
-                      (setf acc (car acc-syntax))
-                      (cadr acc-syntax)))
+                    (let ((new (funcall f acc x)))
+                      (setf acc (fold-acc new))
+                      (fold-place new)))
                   xs)))
-    (list acc new-list)))
+    (make-fold :acc acc :place new-list)))
 
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun concat-symbol (prefix symbol)

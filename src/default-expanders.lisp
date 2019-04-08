@@ -31,9 +31,7 @@ can properly export the symbols to the right namespace")
   (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package)))
     (make-handler (list (car syntax) new-cadr)
                   :export
-                  (if fn?
-                      (make-exports :fn (bindle.diff-list:of-list (list new-cadr)))
-                      (make-exports :var (bindle.diff-list:of-list (list new-cadr))))
+                  (make-exports (if fn? :fn :var) (bindle.diff-list:of-list (list new-cadr)))
                   :resume-at (cddr syntax))))
 
 (defun fn-cadr-handler (syntax package change-set)
@@ -55,13 +53,11 @@ can properly export the symbols to the right namespace")
                   :resume-at    (cddr syntax))))
 
 (defun defun-handler (syntax package change-set)
-  (let ((new-cadr (cond ((symbolp (cadr syntax))
-                         (utility:intern-sym-curr-package (cadr syntax) package))
-                        ((export-set-mem-fn (cadadr syntax) change-set)
-                         (list (caadr syntax)
-                               (utility:intern-sym-curr-package (cadadr syntax) package)))
-                        (t
-                         (cadr syntax))))
+  (let ((new-cadr (if (symbolp (cadr syntax))
+                      (utility:intern-sym-curr-package (cadr syntax) package)
+                      ;; the list must have 2 things in it!
+                      (list (caadr syntax)
+                            (export-if-mem-fn (cadadr syntax) change-set package))))
         (alias    (alias-handler-gen* (caddr syntax)
                                       package change-set t
                                       *simple-lambda-list-keywords*)))
@@ -127,19 +123,21 @@ can properly export the symbols to the right namespace")
                                               (exports-into-export-set
                                                (alias-export-local alias-args)
                                                change-set))))
-               (list
+               (utility:make-fold
+                :acc
                 (list (change-params-set params)
                       (join-exports (change-params-exports params)
                                     (alias-export alias-args)
                                     (cadr acc)))
+                :place
                 (list* (utility:intern-sym-curr-package (car syntax) package)
                        (alias-changed alias-args)
                        (change-params-syntax params)))))
            (list change-set +empty-exports+)
            fns)))
-    (make-handler (list (car syntax) (cadr change-fns))
-                  :export (cadar change-fns)
-                  :resume-at (cddr syntax)
+    (make-handler (list (car syntax) (utility:fold-place change-fns))
+                  :export       (cadr (utility:fold-acc change-fns))
+                  :resume-at    (cddr syntax)
                   :export-local locally-export)))
 
 ;; just a template to inline the two let-handlers
@@ -172,7 +170,7 @@ can properly export the symbols to the right namespace")
   (let* ((first-expansion
           (macroexpand-1 syntax))
          (new-package-name
-          (concatenate 'string (package-name package)  "." (symbol-name (cadr first-expansion)))))
+          (concatenate 'string (package-name package) "." (symbol-name (cadr first-expansion)))))
     ;; TODO: so defun a bunch of functions that one can use in the previous package by using .
     ;; this may be exported by the catch all, but that is fine, however this would let inner modules
     ;; use outer module code, this should be very easy, as we have the 2nd macro expansion, and thus
@@ -186,7 +184,9 @@ can properly export the symbols to the right namespace")
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))
   (let ((new-cadr (utility:intern-sym-curr-package (cadr syntax) package)))
-    (make-handler (list* (car syntax) new-cadr (cddr syntax))
+    (make-handler (list* (car syntax)
+                         new-cadr
+                         (cddr syntax))
                   :export (export-fn_ +empty-exports+ new-cadr package))))
 
 (defun defmethod-handler (syntax package change-set)

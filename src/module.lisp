@@ -170,19 +170,22 @@ or an okay with the sig-contents"
                             syntax
                             package
                             (cadr change-export))))
-               (list (list (expanders:join-exports (expanders:change-params-exports params)
-                                                   (car change-export))
-                           (expanders:change-params-set params))
-                     (expanders:change-params-syntax params))))
+               (utility:make-fold
+                :acc
+                (list (expanders:join-exports (expanders:change-params-exports params)
+                                              (car change-export))
+                      (expanders:change-params-set params))
+                :place
+                (expanders:change-params-syntax params))))
            (list expanders::+empty-exports+ expanders::+empty-export-set+)
            syntax))
-         (syntax     (cadr  pass1))
-         (change-set (cadar pass1))
-         (exports    (expanders:export-to-list (caar pass1)))
+         (change-set (cadr (utility:fold-acc pass1)))
+         (exports    (expanders:export-to-list (car (utility:fold-acc pass1))))
          (pass2
           (mapcar (lambda (x)
-                    (expanders:change-params-syntax (expanders:recursively-change x package change-set)))
-                  syntax)))
+                    (expanders:change-params-syntax
+                     (expanders:recursively-change x package change-set)))
+                  (utility:fold-place pass1))))
 
     (if sig
         (let* ((sig-exp (sig-export-list sig package))

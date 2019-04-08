@@ -350,19 +350,22 @@ the trigger function also takes a set that determines what symbols to export if 
                  (utility:foldl-map
                   (lambda (acc syn)
                     (let ((params (recursively-change syn package (car acc))))
-                      (list (list (change-params-set params)
-                                  (join-exports (change-params-exports params)
-                                                (cadr acc)))
-                            (change-params-syntax params))))
+                      (utility:make-fold
+                       :acc
+                       (list (change-params-set params)
+                             (join-exports (change-params-exports params)
+                                           (cadr acc)))
+                       :place
+                       (change-params-syntax params))))
                   (list change-set +empty-exports+)
                   (if (listp (car syntax))
                       syntax
                       (cdr syntax)))))
            (make-change-params :syntax  (if (listp (car syntax))
-                                            (cadr state-syntax)
-                                            (cons first (cadr state-syntax)))
-                               :set     (caar state-syntax)
-                               :exports (cadar state-syntax))))
+                                            (utility:fold-place state-syntax)
+                                            (cons first (utility:fold-place state-syntax)))
+                               :set     (car (utility:fold-acc state-syntax))
+                               :exports (cadr (utility:fold-acc state-syntax)))))
         (t (make-change-params :syntax syntax
                                :set change-set
                                :exports +empty-exports+))))

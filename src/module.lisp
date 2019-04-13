@@ -162,7 +162,7 @@ or an okay with the sig-contents"
           (cond ((or (null sig) (eq '() sig)) nil)
                 ((symbolp sig)                (symbol-value sig))
                 ((sig-contents-p sig)         sig)
-                (t                            (parse-sig (cdr sig)))))
+                (t                            (ok-or-error (parse-sig (cdr sig))))))
          (pass1
           (foldl-map
            (lambda (change-export syntax)

@@ -34,6 +34,8 @@ Here's an applicative written using bindle =defmodule=.
 Check out the wiki for more details.
 
 ** Currently Not Supported
+- Defstruct
+  + You don't get structs.
 - Nested modules
   + This can be simulated rather easily, check out the wiki article on
     it here.

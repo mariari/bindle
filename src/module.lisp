@@ -188,14 +188,14 @@ or an okay with the sig-contents"
     (if sig
         (let* ((sig-exp (sig-export-list sig package))
                (diff    (set-difference sig-exp exports)))
-          (progn
-            `(when ,diff
-               (error (error-parse-struct ,diff)))
-            `(progn
-               ,@pass2
-               (export ',sig-exp ',package)
-               (values ,(find-package package)
-                       ',sig-exp))))
+          (print sig-exp)
+          (if diff
+              `(error (error-parse-struct ,diff))
+              `(progn
+                 ,@pass2
+                 (export ',sig-exp ',package)
+                 (values ,(find-package package)
+                         ',sig-exp))))
         `(progn
            ,@pass2
            ,@(final-struct exports package)))))
@@ -210,8 +210,9 @@ or an okay with the sig-contents"
               (list 'quote exports))))
 
 (defun error-parse-struct (x)
+  ;; TODO: use format loop logic to newline every missing symbol
   (format nil
-          "Please include these symbols in your definition ~@a to staisfy your signature"
+          "Please include these symbols, ~@a, in your definition to staisfy your signature"
           x))
 
 (defmacro parse-functor (sym syntax)

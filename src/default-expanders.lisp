@@ -283,4 +283,3 @@ can properly export the symbols to the right namespace")
 
 (add-handler 'function
              #'function-handler)
-

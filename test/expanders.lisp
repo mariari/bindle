@@ -93,15 +93,46 @@
         :export (expanders::make-exports :fn (bindle.diff-list::of-list '(test::blah)))
         :export-local (expanders::make-exports :var (bindle.diff-list::of-list '(c b a y param)))))))
 
-;; Add these tests later
 
-;; (let*-handler '(let* ((cl-user::a 2) (b a)) b) 'test bindle.set:+empty+)
-;; (let*-handler '(let* ((cl-user::a 2) (b cl-user::a)) b) 'test bindle.set:+empty+)
-;; (let*-handler '(let* ((a 2) (b a)) b) 'test bindle.set:+empty+)
+(test let*-handler
+  (labels ((help-test (syntax changed)
+             (is (handle-equalp
+                  (funcall (expanders:get-handler :let*)
+                           syntax 'test expanders::+empty-export-set+)
+                  (expanders::make-recursively
+                   :changed changed
+                   :resume-at '(b)
+                   :export expanders::+empty-exports+
+                   :export-local (expanders::make-exports :var (bindle.diff-list::of-list '(b a))))))))
 
-;; (flet-handler '(labels ((blah (x) (if (zerop x) 1 (foo (1- x))))
-;;                                      (foo (x)  (if (zerop x) 1 (blah (1- x)))))
-;;                              (blah 2)) 'test bindle.set:+empty+)
+    (help-test '(let* ((cl-user::a 2) (b a)) b)
+               '(let* ((test::a 2) (test::b test::a))))
+  
+    (help-test '(let* ((cl-user::a 2) (b cl-user::a)) b)
+               '(let* ((test::a 2) (test::b test::a))))
+  
+    (help-test '(let* ((a 2) (b a)) b)
+               '(let* ((test::a 2) (test::b test::a))))))
+
+(test labels-handler
+  (is (handle-equalp
+       (funcall (expanders:get-handler :labels)
+                '(labels ((blah (x) (if (zerop x) 1 (foo (1- x))))
+                          (foo (x)  (if (zerop x) 1 (blah (1- x)))))
+                  (blah 2))
+                'test expanders::+empty-export-set+)
+       (expanders::make-recursively
+        :changed '(labels ((test::blah (test::x)
+                            (if (zerop test::x)
+                                1
+                                (test::foo (1- test::x))))
+                           (test::foo (test::x)
+                            (if (zerop test::x)
+                                1
+                                (test::blah (1- test::x))))))
+        :resume-at '((blah 2))
+        :export expanders::+empty-exports+
+        :export-local (expanders::make-exports :fn (bindle.diff-list::of-list '(blah foo)))))))
 
 
 ;; (bindle.diff-list:to-list

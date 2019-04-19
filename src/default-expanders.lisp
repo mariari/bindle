@@ -166,20 +166,28 @@ can properly export the symbols to the right namespace")
 ;;   (make-handler syntax))
 
 (defun module-handler (syntax package change-set)
-  (declare (ignore change-set))
+  (declare (ignore change-set package))
   (let* ((first-expansion
           (macroexpand-1 syntax))
-         (new-package-name
-          (concatenate 'string (package-name package) "." (symbol-name (cadr first-expansion)))))
+         ;; (new-package-name
+         ;;  (concatenate 'string (package-name package) "." (symbol-name (cadr first-expansion))))
+         )
     ;; TODO: so defun a bunch of functions that one can use in the previous package by using .
     ;; this may be exported by the catch all, but that is fine, however this would let inner modules
     ;; use outer module code, this should be very easy, as we have the 2nd macro expansion, and thus
     ;; we can simply takes the last functions and do a defun alias type of thing!
-    (make-handler (macroexpand-1 (list* (car first-expansion)
-                                        new-package-name
-                                        (cddr first-expansion)))
+
+    ;; TODO: bring back another macro expand, however, intern it as a 2nd form, as a 2nd pass will destroy
+    ;; function defintions of inherited functions.  Thus make an intermediate form that expanders properly!
+    (make-handler first-expansion
                   ;; :export (change-params-exports expanded-code)
                   )))
+
+(defun module-named-handler (syntax package change-set)
+  (declare (ignore change-set))
+  (make-handler (list* (car syntax)
+                       (intern (concatenate 'string (package-name package) "." (symbol-name (cadr syntax))))
+                       (cddr syntax))))
 
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))
@@ -244,6 +252,8 @@ can properly export the symbols to the right namespace")
 
 (add-handler 'defmodule
              #'module-handler)
+(add-handler 'defmodule-named
+             #'module-named-handler)
 
 (add-handler 'defgeneric
              #'defgeneric-handler)

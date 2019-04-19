@@ -159,10 +159,10 @@ or an okay with the sig-contents"
   "Parses the body of a module. Returns ether an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
   (let* ((sig
-          (cond ((or (null sig) (eq '() sig)) nil)
-                ((symbolp sig)                (symbol-value sig))
-                ((sig-contents-p sig)         sig)
-                (t                            (ok-or-error (parse-sig (cdr sig))))))
+          (cond ((null sig)            nil)
+                ((symbolp sig)        (symbol-value sig))
+                ((sig-contents-p sig) sig)
+                (t                    (ok-or-error (parse-sig (cdr sig))))))
          (pass1
           (foldl-map
            (lambda (change-export syntax)
@@ -187,15 +187,15 @@ or an okay with the sig-contents"
                   (fold-place pass1))))
     (if sig
         (let* ((sig-exp (sig-export-list sig package))
-               (diff    (set-difference sig-exp exports)))
-          (print sig-exp)
-          (if diff
-              `(error (error-parse-struct ,diff))
-              `(progn
-                 ,@pass2
-                 (export ',sig-exp ',package)
-                 (values ,(find-package package)
-                         ',sig-exp))))
+               ;; (diff    (set-difference sig-exp exports))
+               )
+          `(progn
+             ;; (when  ',diff
+             ;;   (warn ,(error-parse-struct diff)))
+             ,@pass2
+             (export ',sig-exp ',package)
+             (values ,(find-package package)
+                     ',sig-exp)))
         `(progn
            ,@pass2
            ,@(final-struct exports package)))))
@@ -212,7 +212,7 @@ or an okay with the sig-contents"
 (defun error-parse-struct (x)
   ;; TODO: use format loop logic to newline every missing symbol
   (format nil
-          "Please include these symbols, ~@a, in your definition to staisfy your signature"
+          "Please include these symbols, ~a, in your definition to staisfy your signature"
           x))
 
 (defmacro parse-functor (sym syntax)

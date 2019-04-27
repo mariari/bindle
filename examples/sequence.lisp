@@ -19,6 +19,30 @@
                                  :done  (lambda ()    (funcall finish acc))
                                  :skip  (lambda (s)   (funcall f acc () (lambda (x) (rec s next finish f x))))
                                  :yeild (lambda (a s) (funcall f acc a  (lambda (x) (rec s next finish f x)))))))
+                 (rec (sequence-s s) (sequence-next s) finish f init))))
+  
+  (defmodule non-expert struct ()
+             (defun next-step (seq))
+
+             (defun super-allowed-fold-step (s &key init f finish)
+               (labels
+                   ((rec (s next finish f acc)
+                      (match-seq (funcall next s)
+                                 :done  (lambda ()    (funcall finish acc))
+                                 :skip  (lambda (s)   (funcall f acc () (lambda (x) (rec s next finish f x))))
+                                 :yeild (lambda (a s) (funcall f acc a  (lambda (x) (rec s next finish f x)))))))
+                 (rec (sequence-s s) (sequence-next s) finish f init))))
+  
+  (defmodule extra-expert struct ()
+             (defun next-step (seq))
+
+             (defun delayed-jump (s &key init f finish)
+               (labels
+                   ((rec (s next finish f acc)
+                      (match-seq (funcall next s)
+                                 :done  (lambda ()    (funcall finish acc))
+                                 :skip  (lambda (s)   (funcall f acc () (lambda (x) (rec s next finish f x))))
+                                 :yeild (lambda (a s) (funcall f acc a  (lambda (x) (rec s next finish f x)))))))
                  (rec (sequence-s s) (sequence-next s) finish f init)))))
 
 (defun unfold-step (init f)

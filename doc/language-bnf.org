@@ -1,4 +1,4 @@
-The following is the bnf for cl-modular functor.
+The following is the bnf for bindle defmodule:
 
 #+BEGIN_EXAMPLE
   final := (defmodule <module_name> <mod_term>)
@@ -15,7 +15,7 @@ The following is the bnf for cl-modular functor.
   sig_term := (val <val_name>)
             | (fun <fun_name> <arguments>*)
             | (macro <macro_name>)
-            | (inlude <module_name>)
+            | (include <module_name>)
             | <valid_symbol>
 
   functor := (<functor_constraint>*) ()         <definitions>
@@ -25,8 +25,9 @@ The following is the bnf for cl-modular functor.
   functor_constraint := (<module_name> (<sig>))
                       | (<module_name> <sig_name>)
 
-  module := struct () <definitons>
+  module := struct () <definitions>
           | struct <sig_name> <definitions>
-          | struct (<sig>) <definiitons>
+          | struct (<sig>) <definitions>
+
   definitions := <valid_lisp>
 #+END_EXAMPLE

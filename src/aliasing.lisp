@@ -6,7 +6,7 @@
 
 (in-package alias)
 
-(declaim (ftype (function (symbol string) boolean) alias-p))
+(declaim (ftype (function (symbol string) Boolean) alias-p))
 (defun alias-p (alias-name string)
   "checks to see if the STRING is alias-name.*"
   (let ((pos (position #\. string)))

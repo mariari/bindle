@@ -190,15 +190,19 @@ can properly export the symbols to the right namespace")
                                    "."
                                    (symbol-name (cadr syntax))))))
     (ignore-errors (make-package new-package-name))
-    (make-handler (list* (car syntax)
-                         package
-                         (change-params-syntax
-                          (recursively-change (change-params-syntax
-                                               (recursively-change (cddr syntax)
-                                                                   new-package-name
-                                                                   expanders::+empty-export-set+))
-                                              package
-                                              change-set))))))
+    (make-handler
+     (change-params-syntax
+      ;; this second recursively changed is a hack!!!!!!!!!!
+      ;; TODO: figure out how to remove this, as I need it for functions like map and return
+      ;; which are in the inherited namespace and thus screws with the correct expansion
+      (recursively-change (change-params-syntax
+                           (recursively-change (macroexpand-1 (list* (car syntax)
+                                                                     new-package-name
+                                                                     (cddr syntax)))
+                                               package
+                                               change-set))
+                          new-package-name
+                          change-set)))))
 
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))

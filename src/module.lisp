@@ -156,7 +156,7 @@ or an okay with the sig-contents"
 (declaim (ftype (function ((or symbol list sig-contents) list package-designator) list)
                 parse-struct))
 (defun parse-struct (sig syntax package)
-  "Parses the body of a module. Returns ether an error or an okay with struct-contents.
+  "Parses the body of a module. Returns either an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
   (let* ((sig
           (cond ((null sig)            nil)

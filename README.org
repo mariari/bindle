@@ -36,7 +36,7 @@ Check out the wiki for more details.
 ** Currently Not Supported
 - Defstruct
   + You don't get structs.
-- Nested modules
+- Accessing Inner modules from outer modules
   + This can be simulated rather easily, check out the wiki article on
     it here.
 - Macros

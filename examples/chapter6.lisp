@@ -113,7 +113,7 @@
 
 
 ;;;; TEST MODULE---------------------------------------------------------
-(module:defmodule ref struct ()
+(module:defmodule reference struct ()
   (defclass ref ()
     ((contents
       :initarg :contents

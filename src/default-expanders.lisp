@@ -118,7 +118,7 @@ can properly export the symbols to the right namespace")
                   (change-set (exports-into-export-set
                                (alias-export alias-args)
                                (car acc)))
-                  (params (recursively-change (cddr syntax)
+                  (params (recursively-change  (cddr syntax)
                                               package
                                               (exports-into-export-set
                                                (alias-export-local alias-args)
@@ -166,9 +166,9 @@ can properly export the symbols to the right namespace")
 ;;   (make-handler syntax))
 
 (defun module-handler (syntax package change-set)
-  (declare (ignore change-set package))
+  (declare (ignore package change-set))
   (let* ((first-expansion
-          (macroexpand-1 syntax))
+           (macroexpand-1 syntax))
          ;; (new-package-name
          ;;  (concatenate 'string (package-name package) "." (symbol-name (cadr first-expansion))))
          )
@@ -184,10 +184,21 @@ can properly export the symbols to the right namespace")
                   )))
 
 (defun module-named-handler (syntax package change-set)
-  (declare (ignore change-set))
-  (make-handler (list* (car syntax)
-                       (intern (concatenate 'string (package-name package) "." (symbol-name (cadr syntax))))
-                       (cddr syntax))))
+  (let ((new-package-name (intern (concatenate
+                                   'string
+                                   (package-name package)
+                                   "."
+                                   (symbol-name (cadr syntax))))))
+    (ignore-errors (make-package new-package-name))
+    (make-handler (list* (car syntax)
+                         package
+                         (change-params-syntax
+                          (recursively-change (change-params-syntax
+                                               (recursively-change (cddr syntax)
+                                                                   new-package-name
+                                                                   expanders::+empty-export-set+))
+                                              package
+                                              change-set))))))
 
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))

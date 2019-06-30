@@ -161,17 +161,10 @@ can properly export the symbols to the right namespace")
 (defun flet-handler (syntax package change-set)
   (fns-handler-gen syntax package change-set nil))
 
-;; (defun module-handler (syntax package change-set)
-;;   (declare (ignore change-set package))
-;;   (make-handler syntax))
-
 (defun module-handler (syntax package change-set)
   (declare (ignore package change-set))
   (let* ((first-expansion
-           (macroexpand-1 syntax))
-         ;; (new-package-name
-         ;;  (concatenate 'string (package-name package) "." (symbol-name (cadr first-expansion))))
-         )
+           (macroexpand-1 syntax)))
     ;; TODO: so defun a bunch of functions that one can use in the previous package by using .
     ;; this may be exported by the catch all, but that is fine, however this would let inner modules
     ;; use outer module code, this should be very easy, as we have the 2nd macro expansion, and thus
@@ -179,30 +172,42 @@ can properly export the symbols to the right namespace")
 
     ;; TODO: bring back another macro expand, however, intern it as a 2nd form, as a 2nd pass will destroy
     ;; function defintions of inherited functions.  Thus make an intermediate form that expanders properly!
-    (make-handler first-expansion
-                  ;; :export (change-params-exports expanded-code)
-                  )))
+
+    ;; this is important this doesn't expand now, as the 2nd passthrough will destroy symbols that
+    ;; are inherited.... thanks CL
+    (make-handler first-expansion)))
 
 (defun module-named-handler (syntax package change-set)
-  (let ((new-package-name (intern (concatenate
-                                   'string
-                                   (package-name package)
-                                   "."
-                                   (symbol-name (cadr syntax))))))
+  (let* ((new-package-name (intern (concatenate
+                                    'string
+                                    (package-name package)
+                                    "."
+                                    (symbol-name (cadr syntax)))))
+         ;; this second recursively changed is a hack!!!!!!!!!!
+         ;; TODO: figure out how to remove this, as I need it for functions like map and return
+         ;; which are in the inherited namespace and thus screws with the correct expansion
+         (changed-syntax
+           (recursively-change (change-params-syntax
+                                (recursively-change (macroexpand-1
+                                                     (list* (car syntax)
+                                                            new-package-name
+                                                            (cddr syntax)))
+                                                    package
+                                                    change-set))
+                               new-package-name
+                               expanders::+empty-export-set+))
+         (alias-of-inner-module-fns
+           (recursively-change (utility:alias-in-inner-module-form
+                                (change-params-exports changed-syntax)
+                                new-package-name
+                                (cadr syntax))
+                               package
+                               expanders::+empty-export-set+)))
     (ignore-errors (make-package new-package-name))
     (make-handler
-     (change-params-syntax
-      ;; this second recursively changed is a hack!!!!!!!!!!
-      ;; TODO: figure out how to remove this, as I need it for functions like map and return
-      ;; which are in the inherited namespace and thus screws with the correct expansion
-      (recursively-change (change-params-syntax
-                           (recursively-change (macroexpand-1 (list* (car syntax)
-                                                                     new-package-name
-                                                                     (cddr syntax)))
-                                               package
-                                               change-set))
-                          new-package-name
-                          change-set)))))
+     (append (change-params-syntax changed-syntax)
+             (list (change-params-syntax alias-of-inner-module-fns)))
+     :export (change-params-exports alias-of-inner-module-fns))))
 
 (defun defgeneric-handler (syntax package change-set)
   (declare (ignore change-set))
@@ -236,21 +241,36 @@ can properly export the symbols to the right namespace")
                        (cddr syntax))))
 
 (defun setf-handler (syntax package change-set)
-  (let* ((to-set (cadr syntax))
+  (let* ((exports +empty-exports+)
+         (to-set (cadr syntax))
          (new-to-set
-          ;; bit repetitive must be a better way to do this
-          (cond ((and (listp to-set) (equal (symbol-name (car to-set)) "SYMBOL-FUNCTION"))
-                 (list (car to-set)
-                       (utility:intern-sym-curr-package (cadr to-set) package)))
-                ((listp to-set)
-                 (list (export-if-mem-fn (car to-set) change-set package)
-                       (export-if-mem-var (cadr to-set) change-set package)))
-                ((export-set-mem-var to-set change-set)
-                 (utility:intern-sym-curr-package to-set package))
-                (t
-                 to-set))))
+           ;; bit repetitive must be a better way to do this
+           (cond ((and (listp to-set) (equal (symbol-name (car to-set)) "SYMBOL-FUNCTION"))
+                  (list (car to-set)
+                        (if (listp (cadr to-set))
+                            (progn
+                              (setf exports
+                                    (export-fn_ exports (utility:intern-sym-curr-package
+                                                         (cadadr to-set)
+                                                         package)
+                                                package))
+                              (list 'quote (utility:intern-sym-curr-package (cadadr to-set) package)))
+                            (progn
+                              (setf exports (export-fn_ exports (utility:intern-sym-curr-package
+                                                                 (cadr to-set)
+                                                                 package)
+                                                        package))
+                              (utility:intern-sym-curr-package (cadr to-set) package)))))
+                 ((listp to-set)
+                  (list (export-if-mem-fn (car to-set) change-set package)
+                        (export-if-mem-var (cadr to-set) change-set package)))
+                 ((export-set-mem-var to-set change-set)
+                  (utility:intern-sym-curr-package to-set package))
+                 (t
+                  to-set))))
     (make-handler (list (car syntax) new-to-set)
-                  :resume-at (cddr syntax))))
+                  :resume-at (cddr syntax)
+                  :export exports)))
 
 ;;; Add handlers--------------------------------------------------------------------------
 

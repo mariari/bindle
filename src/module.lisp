@@ -158,47 +158,45 @@ or an okay with the sig-contents"
 (defun parse-struct (sig syntax package)
   "Parses the body of a module. Returns either an error or an okay with struct-contents.
    Also checks SIG for the proper values to export."
-  (let* ((sig
-          (cond ((null sig)            nil)
-                ((symbolp sig)        (symbol-value sig))
-                ((sig-contents-p sig) sig)
-                (t                    (ok-or-error (parse-sig (cdr sig))))))
-         (pass1
-          (foldl-map
-           (lambda (change-export syntax)
-             (let ((params (recursively-change
-                            syntax
-                            package
-                            (cadr change-export))))
-               (make-fold
-                :acc
-                (list (join-exports (change-params-exports params)
-                                    (car change-export))
-                      (change-params-set params))
-                :place
-                (change-params-syntax params))))
-           (list +empty-exports+ expanders::+empty-export-set+)
-           syntax))
-         (change-set (cadr (fold-acc pass1)))
-         (exports    (export-to-list (car (fold-acc pass1))))
-         (pass2
-          (mapcar (lambda (x)
-                    (change-params-syntax (recursively-change x package change-set)))
-                  (fold-place pass1))))
-    (if sig
-        (let* ((sig-exp (sig-export-list sig package))
-               ;; (diff    (set-difference sig-exp exports))
-               )
+  (labels ((pass (syntax change-set)
+             (foldl-map
+              (lambda (change-export syntax)
+                (let ((params (recursively-change
+                               syntax
+                               package
+                               (cadr change-export))))
+                  (make-fold
+                   :acc
+                   (list (join-exports (change-params-exports params)
+                                       (car change-export))
+                         (change-params-set params))
+                   :place
+                   (change-params-syntax params))))
+              (list +empty-exports+ change-set)
+              syntax)))
+    (let* ((sig
+             (cond ((null sig)            nil)
+                   ((symbolp sig)        (symbol-value sig))
+                   ((sig-contents-p sig) sig)
+                   (t                    (ok-or-error (parse-sig (cdr sig))))))
+           (pass1      (pass syntax expanders::+empty-export-set+))
+           (change-set (cadr (fold-acc pass1)))
+           (pass2      (pass (fold-place pass1) change-set))
+           (exports    (export-to-list (car (fold-acc pass2)))))
+      (if sig
+          (let* ((sig-exp (sig-export-list sig package))
+                 ;; (diff    (set-difference sig-exp exports))
+                 )
+            `(progn
+               ;; (when  ',diff
+               ;;   (warn ,(error-parse-struct diff)))
+               ,@(fold-place pass2)
+               (export ',sig-exp ',package)
+               (values ,(find-package package)
+                       ',sig-exp)))
           `(progn
-             ;; (when  ',diff
-             ;;   (warn ,(error-parse-struct diff)))
-             ,@pass2
-             (export ',sig-exp ',package)
-             (values ,(find-package package)
-                     ',sig-exp)))
-        `(progn
-           ,@pass2
-           ,@(final-struct exports package)))))
+             ,@(fold-place pass2)
+             ,@(final-struct exports package))))))
 
 (declaim (ftype (function (t package-designator) list) final-struct))
 (defun final-struct (exports package)

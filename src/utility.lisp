@@ -16,7 +16,8 @@
            #:make-fold
            #:fold-acc
            #:fold-place
-           #:foldp))
+           #:foldp
+           #:alias-in-inner-module-form))
 
 (in-package #:utility)
 
@@ -70,7 +71,6 @@ source code but is not exposed"
                                    (on-car (lambda (as) (cons (car xs) as)) acc))))))
     (rec n xs '())))
 
-
 (defstruct fold place acc)
 
 (defun foldl-map (f init xs)
@@ -86,6 +86,19 @@ source code but is not exposed"
 (declaim (ftype (function (symbol symbol) string) update-inner-module-name))
 (defun concat-symbol (prefix symbol)
   (intern (concatenate 'string (symbol-name prefix) "." (symbol-name symbol))))
+
+(defun alias-in-inner-module-form (export-set old-package package-to-append)
+  "Creates a syntax for aliasing functions and vars (types and macro not supported ATM)
+into the proper form in the new package"
+  `(progn
+     ,@(mapcar (lambda (s)
+                 `(setf (symbol-function ',(concat-symbol package-to-append s))
+                       (function ,(find-symbol (symbol-name s) old-package))))
+              (bindle.diff-list:to-list (expanders:exports-fn export-set)))
+     ,@(mapcar (lambda (s)
+                `(defparameter ,(concat-symbol package-to-append s)
+                   ,(find-symbol (symbol-name s) old-package)))
+              (bindle.diff-list:to-list (expanders:exports-var export-set)))))
 
 ;; (let-alias foo cl-user ((+ bin baz) -)
 ;;   (foo.+ 2 (foo.- 3 4)))

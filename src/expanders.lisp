@@ -32,7 +32,11 @@ can properly export the symbols to the right namespace")
            #:export-set-mem-fn
            #:export-set-mem-var
            #:export-if-mem-var
-           #:export-if-mem-fn))
+           #:export-if-mem-fn
+           #:exports-var
+           #:exports-fn
+           #:exports-typ
+           #:exports-mcro))
 
 
 (in-package #:expanders)
@@ -41,8 +45,10 @@ can properly export the symbols to the right namespace")
 (defstruct exports
   "Handles lists of exports, has functions and variables, so one doesn't accidently
 change a function when they want to change a variable and vise versa"
-  (fn  bindle.diff-list:+empty+ :type bindle.diff-list:diff-list)
-  (var bindle.diff-list:+empty+ :type bindle.diff-list:diff-list))
+  (fn   bindle.diff-list:+empty+ :type bindle.diff-list:diff-list)
+  (var  bindle.diff-list:+empty+ :type bindle.diff-list:diff-list)
+  (typ  bindle.diff-list:+empty+ :type bindle.diff-list:diff-list)
+  (mcro bindle.diff-list:+empty+ :type bindle.diff-list:diff-list))
 
 (defun export-to-d-list (exports)
   (bindle.diff-list:d-append (exports-fn  exports)
@@ -54,8 +60,10 @@ change a function when they want to change a variable and vise versa"
 (defstruct export-set
   "Contains two sets, one set that has change functions, and another set that has chagned
 variables"
-  (fn  bindle.set:+empty+ :type bindle.set:fset)
-  (var bindle.set:+empty+ :type bindle.set:fset))
+  (fn   bindle.set:+empty+ :type bindle.set:fset)
+  (var  bindle.set:+empty+ :type bindle.set:fset)
+  (typ  bindle.set:+empty+ :type bindle.set:fset)
+  (mcro bindle.set:+empty+ :type bindle.set:fset))
 
 (deftype handle ()
   "Serves as the sum type of recursively and stop. Recursively allows defmodule to continue
@@ -120,12 +128,7 @@ and EXPORT-LOCAL are the variables that are over the next sexp"
                     :var (bindle.diff-list:d-cons var (exports-var exp)))
       var))
 
-(defun export-fn_ (exp fn &optional package)
-  "A lens to add vars, if the fn is in the curr-packagep or in the designated package"
-  (if (curr-package-or-packagep fn package)
-      (make-exports :fn  (bindle.diff-list:d-cons fn (exports-fn exp))
-                    :var (exports-var exp))
-      exp))
+
 
 (defun export-set-var_ (set var &optional package)
   "A lens to add vars, if the var is in the curr-packagep"

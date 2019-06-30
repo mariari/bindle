@@ -3,8 +3,14 @@
 
 (in-package :inner-modules)
 
-(defmodule testfg2 struct ()
-  (defmodule test2fg2 struct ()
+(defmodule testf struct ()
+  (defun test (x) (+ x 2))
+  (defmodule testg struct ()
     (defun test-2 (x)
-      (test (+ x 3))))
-  (defun test (x) (+ x 2)))
+      (test (+ x 3)))
+    (defparameter *x* (test-2 3)))
+  (defun tests (x) (+ x 2))
+  (+ testg.*x* 3))
+
+
+(print (testf.testg:test-2 3))
